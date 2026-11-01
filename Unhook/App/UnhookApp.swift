@@ -20,9 +20,15 @@ struct UnhookApp: App {
         }
         .modelContainer(AppModelContainer.shared)
         .onChange(of: scenePhase) { _, phase in
-            // Expiries and refunds don't always arrive as transaction updates, so re-check on every return.
-            if phase == .active {
+            switch phase {
+            case .active:
+                // Expiries and refunds don't always arrive as transaction updates, so re-check on every return.
                 Task { await store.refreshEntitlements() }
+            case .background:
+                // Today's changes (a slip, a new habit, the app lock) show up in the widgets right away.
+                WidgetBridge.publish()
+            default:
+                break
             }
         }
     }

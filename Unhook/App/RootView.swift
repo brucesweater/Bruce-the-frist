@@ -36,6 +36,15 @@ struct RootView: View {
                 hasOnboarded = true
             }
         }
+        // Widget taps: unhook://sos opens SOS, anything else goes to Today.
+        .onOpenURL { url in
+            guard url.scheme == "unhook" else { return }
+            if url.host == "sos" {
+                Task { await router.requestSOS() }
+            } else {
+                router.selectedTab = .today
+            }
+        }
     }
 }
 
