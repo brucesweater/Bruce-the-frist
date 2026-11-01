@@ -29,7 +29,7 @@ struct SavingsBanner: View {
         }
     }
 
-    private func metric(title: String, value: String, systemImage: String, tint: Color) -> some View {
+    private func metric(title: LocalizedStringKey, value: String, systemImage: String, tint: Color) -> some View {
         VStack(spacing: 6) {
             Label {
                 Text(title)

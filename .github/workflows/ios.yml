@@ -41,6 +41,11 @@ jobs:
           status=${PIPESTATUS[0]}
           exit "$status"
 
+      - name: List localizable strings
+        # Prints the String Catalog keys the compiler extracted, used to keep the translations complete.
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/dump-strings.py build/DerivedData
+
       - name: Check iOS 26-only frameworks are weak-linked
         # The app supports iOS 17, so frameworks that only exist on iOS 26 (FoundationModels for the
         # on-device coach) must be weak-linked or the app would crash at launch on older iPhones.
@@ -50,7 +55,7 @@ jobs:
           for binary in "$app/Unhook" "$app/Unhook.debug.dylib"; do
             [ -f "$binary" ] || continue
             echo "Inspecting $binary"
-            otool -l "$binary" | awk '/cmd LC_LOAD_DYLIB/{kind="strong"} /cmd LC_LOAD_WEAK_DYLIB/{kind="weak"} /name /{print kind, $2}'
+            otool -l "$binary" | awk '/cmd LC_LOAD_DYLIB/{kind="strong"; next} /cmd LC_LOAD_WEAK_DYLIB/{kind="weak"; next} /cmd /{kind=""} /name / && kind != "" {print kind, $2}'
           done | tee linked.txt
           grep "FoundationModels" linked.txt || echo "FoundationModels is not linked."
           if grep -q "^strong .*FoundationModels" linked.txt; then

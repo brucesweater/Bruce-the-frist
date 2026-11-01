@@ -108,8 +108,8 @@ struct HabitDetailView: View {
         .background(.bar)
     }
 
-    private var unitsTitle: String {
-        let unit = habit.unitName.isEmpty ? "Units" : habit.unitName.capitalized
+    private var unitsTitle: LocalizedStringKey {
+        let unit = habit.unitName.isEmpty ? String(localized: "Units") : habit.unitName.capitalized
         return "\(unit) avoided"
     }
 

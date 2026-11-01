@@ -101,7 +101,7 @@ struct ShareCardView: View {
                 if stats.minutesReclaimed >= 1 {
                     metric(DurationFormatter.minutes(stats.minutesReclaimed), label: "reclaimed")
                 }
-                metric(Milestone.latest(reachedBy: stats.currentStreak)?.title ?? "Day one", label: "milestone")
+                metric(Milestone.latest(reachedBy: stats.currentStreak)?.title ?? String(localized: "Day one"), label: "milestone")
             }
         }
         .foregroundStyle(.white)
@@ -110,13 +110,14 @@ struct ShareCardView: View {
         .background(habit.theme.gradient)
     }
 
-    private func metric(_ value: String, label: String) -> some View {
+    private func metric(_ value: String, label: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
                 .font(.headline.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(label.uppercased())
+            Text(label)
+                .textCase(.uppercase)
                 .font(.caption2.weight(.semibold))
                 .opacity(0.8)
         }

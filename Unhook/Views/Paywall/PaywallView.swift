@@ -157,7 +157,7 @@ struct PaywallView: View {
     }
 
     private var proThanks: some View {
-        Card(title: String(localized: "Everything is unlocked"), systemImage: "checkmark.seal.fill", tint: .green) {
+        Card(title: "Everything is unlocked", systemImage: "checkmark.seal.fill", tint: .green) {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(PaywallBenefit.allCases) { benefit in
                     PaywallBenefitRow(benefit: benefit)

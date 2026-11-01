@@ -126,7 +126,7 @@ struct InsightsView: View {
         }
     }
 
-    private func placeholder(_ text: String) -> some View {
+    private func placeholder(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.subheadline)
             .foregroundStyle(.secondary)

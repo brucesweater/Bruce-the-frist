@@ -12,19 +12,19 @@ struct Milestone: Identifiable, Hashable {
     private static let day: TimeInterval = 86_400
 
     static let all: [Milestone] = [
-        Milestone(seconds: hour, title: "1 Hour", symbol: "hourglass"),
-        Milestone(seconds: 12 * hour, title: "12 Hours", symbol: "sunrise.fill"),
-        Milestone(seconds: day, title: "1 Day", symbol: "sun.max.fill"),
-        Milestone(seconds: 3 * day, title: "3 Days", symbol: "flame.fill"),
-        Milestone(seconds: 7 * day, title: "1 Week", symbol: "star.fill"),
-        Milestone(seconds: 14 * day, title: "2 Weeks", symbol: "bolt.fill"),
-        Milestone(seconds: 30 * day, title: "1 Month", symbol: "moon.stars.fill"),
-        Milestone(seconds: 60 * day, title: "2 Months", symbol: "leaf.fill"),
-        Milestone(seconds: 90 * day, title: "3 Months", symbol: "trophy.fill"),
-        Milestone(seconds: 180 * day, title: "6 Months", symbol: "medal.fill"),
-        Milestone(seconds: 365 * day, title: "1 Year", symbol: "crown.fill"),
-        Milestone(seconds: 730 * day, title: "2 Years", symbol: "mountain.2.fill"),
-        Milestone(seconds: 1_825 * day, title: "5 Years", symbol: "sparkles"),
+        Milestone(seconds: hour, title: String(localized: "1 Hour"), symbol: "hourglass"),
+        Milestone(seconds: 12 * hour, title: String(localized: "12 Hours"), symbol: "sunrise.fill"),
+        Milestone(seconds: day, title: String(localized: "1 Day"), symbol: "sun.max.fill"),
+        Milestone(seconds: 3 * day, title: String(localized: "3 Days"), symbol: "flame.fill"),
+        Milestone(seconds: 7 * day, title: String(localized: "1 Week"), symbol: "star.fill"),
+        Milestone(seconds: 14 * day, title: String(localized: "2 Weeks"), symbol: "bolt.fill"),
+        Milestone(seconds: 30 * day, title: String(localized: "1 Month"), symbol: "moon.stars.fill"),
+        Milestone(seconds: 60 * day, title: String(localized: "2 Months"), symbol: "leaf.fill"),
+        Milestone(seconds: 90 * day, title: String(localized: "3 Months"), symbol: "trophy.fill"),
+        Milestone(seconds: 180 * day, title: String(localized: "6 Months"), symbol: "medal.fill"),
+        Milestone(seconds: 365 * day, title: String(localized: "1 Year"), symbol: "crown.fill"),
+        Milestone(seconds: 730 * day, title: String(localized: "2 Years"), symbol: "mountain.2.fill"),
+        Milestone(seconds: 1_825 * day, title: String(localized: "5 Years"), symbol: "sparkles"),
     ]
 
     static func next(after elapsed: TimeInterval) -> Milestone? {

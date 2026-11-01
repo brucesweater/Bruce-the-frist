@@ -160,7 +160,7 @@ struct HabitFormView: View {
 
     // MARK: Helpers
 
-    private func numberRow(_ title: String, text: Binding<String>, prefix: String?, field: Field) -> some View {
+    private func numberRow(_ title: LocalizedStringKey, text: Binding<String>, prefix: String?, field: Field) -> some View {
         HStack {
             Text(title)
             Spacer()

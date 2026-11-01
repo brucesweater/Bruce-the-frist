@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Rounded content container used across the app.
 struct Card<Content: View>: View {
-    var title: String?
+    var title: LocalizedStringKey?
     var systemImage: String?
     var tint: Color = .accentColor
     @ViewBuilder var content: Content
@@ -28,7 +28,7 @@ struct Card<Content: View>: View {
 }
 
 struct StatTile: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
     let systemImage: String
     var tint: Color = .accentColor

@@ -14,32 +14,38 @@ struct SOSView: View {
 
     private enum Phase { case breathing, finished, celebrating }
 
-    private enum BreathStep: String {
-        case inhale = "Breathe in"
-        case hold = "Hold"
-        case exhale = "Breathe out"
+    private enum BreathStep {
+        case inhale, hold, exhale
+
+        var title: String {
+            switch self {
+            case .inhale: String(localized: "Breathe in")
+            case .hold: String(localized: "Hold")
+            case .exhale: String(localized: "Breathe out")
+            }
+        }
     }
 
     private static let totalCycles = 4
     private static let restingScale: CGFloat = 0.55
 
     private static let fallbackReasons = [
-        "Cravings peak and fade within minutes.",
-        "You are stronger than this moment.",
-        "Future you is already proud of you.",
+        String(localized: "Cravings peak and fade within minutes."),
+        String(localized: "You are stronger than this moment."),
+        String(localized: "Future you is already proud of you."),
     ]
 
     private static let allDistractions = [
-        "Drink a big glass of cold water",
-        "Go for a five-minute walk",
-        "Text or call a friend",
-        "Do 15 push-ups or squats",
-        "Splash cold water on your face",
-        "Chew gum or eat something crunchy",
-        "Put on your favorite song",
-        "Write down how you feel right now",
-        "Brush your teeth",
-        "Step outside and take ten deep breaths",
+        String(localized: "Drink a big glass of cold water"),
+        String(localized: "Go for a five-minute walk"),
+        String(localized: "Text or call a friend"),
+        String(localized: "Do 15 push-ups or squats"),
+        String(localized: "Splash cold water on your face"),
+        String(localized: "Chew gum or eat something crunchy"),
+        String(localized: "Put on your favorite song"),
+        String(localized: "Write down how you feel right now"),
+        String(localized: "Brush your teeth"),
+        String(localized: "Step outside and take ten deep breaths"),
     ]
 
     @State private var phase: Phase = .breathing
@@ -120,7 +126,7 @@ struct SOSView: View {
                     .fill(theme.gradient)
                     .scaleEffect(circleScale)
                     .shadow(color: theme.accent.opacity(0.6), radius: 30)
-                Text(step.rawValue)
+                Text(step.title)
                     .font(.title.bold())
                     .foregroundStyle(.white)
                     .id(step)
@@ -128,7 +134,7 @@ struct SOSView: View {
             }
             .frame(width: 280, height: 280)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(step.rawValue)
+            .accessibilityLabel(step.title)
 
             VStack(spacing: 8) {
                 Text("REMEMBER WHY")

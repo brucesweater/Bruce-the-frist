@@ -19,7 +19,7 @@ struct TriggerInsightsCard: View {
 
     var body: some View {
         let insights = TriggerInsights(events: events)
-        Card(title: String(localized: "Craving patterns"), systemImage: "waveform.path.ecg", tint: .pink) {
+        Card(title: "Craving patterns", systemImage: "waveform.path.ecg", tint: .pink) {
             if insights.totalCount < Self.minimumEvents {
                 emptyState
             } else {

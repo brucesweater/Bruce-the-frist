@@ -26,6 +26,21 @@ struct ScriptedCoach {
         String(localized: "I did it! 💪"),
     ]
 
+    /// What each quick reply means, in the same order. Keyword detection only knows English, so a tapped chip
+    /// maps straight to its intent and works in every language the chips are translated into.
+    static let quickReplyIntents: [CoachIntent] = [.craving, .stressed, .bored, .social, .slipped, .proud]
+
+    /// The intent for `message`: a tapped quick reply's own intent, otherwise keyword detection.
+    static func intent(for message: String) -> CoachIntent {
+        if CoachSafety.isCrisis(message) {
+            return .crisis
+        }
+        if let index = quickReplies.firstIndex(of: message), quickReplyIntents.indices.contains(index) {
+            return quickReplyIntents[index]
+        }
+        return CoachIntent.detect(in: message)
+    }
+
     /// The coach's first message, personalized with the user's streak.
     static func openingMessage(for context: CoachContext) -> String {
         guard let name = context.habitName else {
@@ -47,7 +62,7 @@ struct ScriptedCoach {
     /// Picks a reply for `message`. Phrasing rotates with the number of messages the user has sent and never
     /// repeats an answer already given in `history` while another one is available.
     func plan(for message: String, history: [CoachMessage], context: CoachContext) -> CoachReply {
-        let intent = CoachIntent.detect(in: message)
+        let intent = Self.intent(for: message)
         let seed = history.filter { $0.role == .user }.count
         let options = Self.replies(for: intent, context: context, seed: seed)
         guard !options.isEmpty else { return Self.fallbackReply }

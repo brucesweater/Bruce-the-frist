@@ -19,7 +19,7 @@ struct GoalsCard: View {
     }
 
     var body: some View {
-        Card(title: String(localized: "Savings goals"), systemImage: "gift.fill", tint: .pink) {
+        Card(title: "Savings goals", systemImage: "gift.fill", tint: .pink) {
             if goals.isEmpty {
                 emptyState
             } else {

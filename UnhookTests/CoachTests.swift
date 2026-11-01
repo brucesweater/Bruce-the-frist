@@ -84,6 +84,26 @@ struct CoachTests {
     @Test func quickRepliesMapToTheirIntents() {
         let intents = ScriptedCoach.quickReplies.map { CoachIntent.detect(in: $0) }
         #expect(intents == [.craving, .stressed, .bored, .social, .slipped, .proud])
+        // The explicit mapping (used in every language) agrees with keyword detection in English.
+        #expect(ScriptedCoach.quickReplies.map(ScriptedCoach.intent(for:)) == ScriptedCoach.quickReplyIntents)
+        #expect(ScriptedCoach.quickReplyIntents.count == ScriptedCoach.quickReplies.count)
+    }
+
+    @Test func crisisIsDetectedInOtherLanguages() {
+        let messages = [
+            "Ya no puedo más, quiero morir", "Não quero viver assim", "Ich will sterben", "je veux mourir",
+            "Я хочу умереть", "Ölmek istiyorum", "もう死にたい", "죽고 싶어요", "我真的想死", "我想自殺", "aku ingin mati",
+        ]
+        for message in messages {
+            #expect(CoachSafety.isCrisis(message), "\(message)")
+        }
+    }
+
+    @Test func everydayMessagesInOtherLanguagesAreNotACrisis() {
+        let messages = ["Tengo muchas ganas de fumar", "Estou estressado hoje", "Ich habe Lust auf eine Zigarette", "タバコが吸いたい", "我很想抽烟"]
+        for message in messages {
+            #expect(!CoachSafety.isCrisis(message), "\(message)")
+        }
     }
 
     @Test func keywordMatchingUsesWholeWords() {

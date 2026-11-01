@@ -34,9 +34,13 @@ struct PledgeCard: View {
 
     private var subtitle: String {
         if pledgedToday {
-            return streak > 1 ? "\(streak)-day pledge streak 🔥" : "See you tomorrow. Stay strong today."
+            return streak > 1
+                ? String(localized: "\(streak)-day pledge streak 🔥")
+                : String(localized: "See you tomorrow. Stay strong today.")
         }
-        return streak > 0 ? "Keep your \(streak)-day streak alive." : "Commit to one clean day. Just today."
+        return streak > 0
+            ? String(localized: "Keep your \(streak)-day streak alive.")
+            : String(localized: "Commit to one clean day. Just today.")
     }
 }
 

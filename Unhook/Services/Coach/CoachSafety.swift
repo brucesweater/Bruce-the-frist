@@ -20,8 +20,46 @@ enum CoachSafety {
         "im in danger", "i am in danger", "in immediate danger",
     ]
 
+    /// Crisis phrases in the other languages Unhook ships in. Checked as plain substrings of the case- and
+    /// accent-folded message, because Chinese, Japanese and Thai don't separate words with spaces. Kept short
+    /// and specific, and erring toward showing help: a false alarm costs a helpline banner, a miss costs far more.
+    static let multilingualCrisisPhrases: [String] = [
+        // Spanish
+        "quiero morir", "suicid", "matarme", "no quiero vivir", "quitarme la vida", "acabar con mi vida", "hacerme dano",
+        // Portuguese
+        "quero morrer", "me matar", "nao quero viver", "tirar minha vida", "acabar com minha vida", "me machucar",
+        // French
+        "je veux mourir", "me tuer", "en finir avec la vie", "plus envie de vivre", "me faire du mal",
+        // German
+        "ich will sterben", "selbstmord", "mich umbringen", "nicht mehr leben", "mir das leben nehmen", "mir wehtun",
+        // Italian
+        "voglio morire", "uccidermi", "non voglio piu vivere", "farla finita", "farmi del male",
+        // Dutch
+        "ik wil dood", "zelfmoord", "mezelf van kant maken", "mezelf iets aandoen",
+        // Russian
+        "хочу умереть", "покончить с собой", "суицид", "самоубийств", "убить себя", "не хочу жить", "причинить себе вред",
+        // Turkish
+        "olmek istiyorum", "intihar", "kendimi oldur", "yasamak istemiyorum", "canima kiy", "kendime zarar",
+        // Arabic
+        "أريد أن أموت", "انتحار", "أقتل نفسي", "لا أريد أن أعيش", "أنهي حياتي", "أؤذي نفسي",
+        // Hindi
+        "मरना चाहत", "आत्महत्या", "खुद को मार", "जीना नहीं चाहत", "खुद को नुकसान",
+        // Indonesian
+        "ingin mati", "mau mati", "bunuh diri", "mengakhiri hidup", "tidak ingin hidup", "menyakiti diri",
+        // Japanese
+        "死にたい", "自殺", "消えたい", "生きていたくない", "自分を傷つけ", "命を絶",
+        // Korean
+        "죽고 싶", "죽고싶", "자살", "살고 싶지 않", "목숨을 끊", "자해",
+        // Chinese (Simplified and Traditional)
+        "想死", "自杀", "不想活", "结束生命", "伤害自己", "轻生", "結束生命", "傷害自己", "輕生",
+    ]
+
     static func isCrisis(_ text: String) -> Bool {
-        CoachText.matchesAny(CoachText.normalize(text), crisisPhrases)
+        if CoachText.matchesAny(CoachText.normalize(text), crisisPhrases) {
+            return true
+        }
+        let folded = CoachText.fold(text)
+        return multilingualCrisisPhrases.contains { folded.contains(CoachText.fold($0)) }
     }
 
     /// The fixed, supportive reply to a crisis message.
@@ -68,5 +106,10 @@ enum CoachText {
 
     static func matchesAny(_ normalized: String, _ keywords: [String]) -> Bool {
         keywords.contains { matches(normalized, keyword: $0) }
+    }
+
+    /// Lowercased with accents removed ("Não" → "nao", "Ölmek" → "olmek"), for substring matching in any language.
+    static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
     }
 }

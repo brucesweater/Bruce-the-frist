@@ -15,7 +15,7 @@ struct RecoveryTimelineView: View {
     }
 
     var body: some View {
-        Card(title: String(localized: "Recovery timeline"), systemImage: "heart.text.square.fill", tint: habit.theme.accent) {
+        Card(title: "Recovery timeline", systemImage: "heart.text.square.fill", tint: habit.theme.accent) {
             TimelineView(.periodic(from: .now, by: 30)) { timeline in
                 content(steps: steps, elapsed: habit.stats(at: timeline.date).currentStreak)
             }
