@@ -41,7 +41,7 @@ struct PresetPickerView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("What do you want to quit?")
                         .font(.title.bold())
-                    Text("Pick one to start. You can track more habits anytime.")
+                    Text("Pick one to start. You can fine-tune the details next.")
                         .foregroundStyle(.secondary)
                 }
                 LazyVGrid(columns: columns, spacing: 12) {

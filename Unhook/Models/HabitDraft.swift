@@ -16,12 +16,12 @@ struct HabitDraft {
 
     init() {}
 
-    init(preset: HabitPreset) {
+    init(preset: HabitPreset, currencyCode: String = AppSettings.currencyCode) {
         presetID = preset.id
         name = preset.defaultName
         emoji = preset.emoji
         theme = preset.theme
-        costText = Self.format(preset.dailyCost)
+        costText = Self.format(LocalPrice.suggested(fromUSD: preset.dailyCost, currencyCode: currencyCode))
         minutesText = Self.format(preset.dailyMinutes)
         unitsText = Self.format(preset.unitsPerDay)
         unitName = preset.unitName

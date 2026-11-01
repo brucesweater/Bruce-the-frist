@@ -76,6 +76,11 @@ extension Habit {
         HabitPreset.preset(id: presetID)
     }
 
+    /// The most recent slip. The current streak can't start before it.
+    var latestRelapse: Relapse? {
+        relapses.max { $0.date < $1.date }
+    }
+
     func stats(at now: Date = .now) -> HabitStats {
         HabitStats(
             streakStart: streakStart,
@@ -108,6 +113,19 @@ extension Habit {
         context.insert(relapse)
         relapses.append(relapse)
         return relapse
+    }
+
+    /// Takes back the most recent slip (one logged by mistake, say): the streak it ended carries on as if it
+    /// never happened, and its clean time stops being counted in both the banked total and the streak.
+    func undoLatestRelapse(in context: ModelContext) {
+        guard let relapse = latestRelapse else { return }
+        bankedSeconds = max(0, bankedSeconds - relapse.streakSeconds)
+        streakStart = relapse.date.addingTimeInterval(-relapse.streakSeconds)
+        relapses.removeAll { $0 === relapse }
+        context.delete(relapse)
+        bestStreakSeconds = relapses.map(\.streakSeconds).max() ?? 0
+        // Milestones of the restored streak were celebrated before the slip; don't repeat them.
+        celebratedMilestoneSeconds = Milestone.latest(reachedBy: stats().currentStreak)?.seconds ?? 0
     }
 }
 

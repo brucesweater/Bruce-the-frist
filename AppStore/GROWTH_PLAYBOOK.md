@@ -312,7 +312,7 @@ The app has share cards and a "Tell a friend" row. Ideas in order of effort:
 |---|---|---|
 | **Yearly** `unhook.pro.yearly` | **$29.99** with a 7-day free trial, selected by default | About 50% less than 12 × monthly. Best retention. |
 | Monthly `unhook.pro.monthly` | $4.99 | Mostly an anchor. Some people want to try a month. |
-| Lifetime `unhook.pro.lifetime` | $59.99 | About 2× yearly. Many quitters are trying to *save* money and dislike subscriptions, so lifetime catches them instead of losing them. |
+| Lifetime `unhook.pro.lifetime` | $49.99 | About 1.7× yearly. Many quitters are trying to *save* money and dislike subscriptions, so lifetime catches them instead of losing them. |
 
 **Free stays genuinely useful:** one habit, one active savings goal, SOS, streaks, milestones, recovery timeline, pledges and share cards. **Crisis help is never paywalled.**
 

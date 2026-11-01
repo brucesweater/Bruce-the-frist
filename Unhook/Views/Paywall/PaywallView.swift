@@ -17,6 +17,7 @@ struct PaywallView: View {
     @State private var isRestoring = false
     @State private var isRetrying = false
     @State private var showingNothingToRestore = false
+    @State private var showingPendingApproval = false
     @State private var showingPrivacyPolicy = false
     @State private var showingManageSubscriptions = false
     /// Set while the purchase confetti is showing.
@@ -59,6 +60,15 @@ struct PaywallView: View {
             // Errors from before the paywall opened (a failed product load at launch) aren't actionable here;
             // the "not available" state already explains a missing product list.
             store.lastErrorMessage = nil
+            // A load that failed earlier (offline at launch, say) is retried automatically.
+            if store.hasLoadedProducts && store.products.isEmpty {
+                Task { await retryLoadingProducts() }
+            }
+        }
+        .alert("Waiting for approval", isPresented: $showingPendingApproval) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your purchase needs approval, for example from a family organizer. Unhook Pro unlocks as soon as it's approved.")
         }
         .alert("Something went wrong", isPresented: errorIsPresented) {
             Button("OK", role: .cancel) {}
@@ -438,7 +448,12 @@ struct PaywallView: View {
         guard let product = selectedProduct, !store.isPurchasing else { return }
         Haptics.tap()
         let didPurchase = await store.purchase(product)
-        guard didPurchase else { return }
+        guard didPurchase else {
+            if store.hasPendingPurchase {
+                showingPendingApproval = true
+            }
+            return
+        }
         Haptics.success()
         celebrationID = UUID()
         // A moment of confetti, then out of the way.
@@ -450,13 +465,17 @@ struct PaywallView: View {
         guard !isRestoring else { return }
         Haptics.tap()
         isRestoring = true
-        await store.restorePurchases()
+        let outcome = await store.restorePurchases()
         isRestoring = false
-        if store.isPro {
+        switch outcome {
+        case .restored:
             Haptics.success()
             close()
-        } else if store.lastErrorMessage == nil {
+        case .nothingFound:
             showingNothingToRestore = true
+        case .cancelled, .failed:
+            // Closing the Apple ID prompt needs no message; a failure shows the error alert.
+            break
         }
     }
 

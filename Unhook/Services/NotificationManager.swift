@@ -24,8 +24,8 @@ enum NotificationManager {
 
     static func scheduleDailyReminder(hour: Int, minute: Int) {
         let content = UNMutableNotificationContent()
-        content.title = "Take today's pledge 🤝"
-        content.body = "One day at a time. Commit to staying free today."
+        content.title = String(localized: "Take today's pledge 🤝")
+        content.body = String(localized: "One day at a time. Commit to staying free today.")
         content.sound = .default
 
         var components = DateComponents()
@@ -51,8 +51,14 @@ enum NotificationManager {
             guard interval > 1 else { continue }
 
             let content = UNMutableNotificationContent()
-            content.title = "\(milestone.title) free from \(habit.name) \(habit.emoji)"
-            content.body = "Milestone unlocked! Open Unhook to celebrate and keep it going."
+            if AppLockSettings.isEnabled {
+                // With the app lock on, keep what the user is quitting off the Lock Screen.
+                content.title = String(localized: "New milestone unlocked 🎉")
+                content.body = String(localized: "Open Unhook to celebrate and keep it going.")
+            } else {
+                content.title = String(localized: "\(milestone.title) free from \(habit.name) \(habit.emoji)")
+                content.body = String(localized: "Milestone unlocked! Open Unhook to celebrate and keep it going.")
+            }
             content.sound = .default
 
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
@@ -60,12 +66,16 @@ enum NotificationManager {
         }
     }
 
+    /// Removes scheduled alerts and any already delivered ones still sitting in Notification Center.
     static func cancelMilestones(for habitID: UUID) {
-        center.removePendingNotificationRequests(withIdentifiers: Milestone.all.map { milestoneID(habitID, $0) })
+        let ids = Milestone.all.map { milestoneID(habitID, $0) }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
     }
 
     static func cancelAll() {
         center.removeAllPendingNotificationRequests()
+        center.removeAllDeliveredNotifications()
     }
 
     private static func milestoneID(_ habitID: UUID, _ milestone: Milestone) -> String {

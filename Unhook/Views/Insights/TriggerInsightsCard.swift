@@ -60,7 +60,7 @@ struct TriggerInsightsCard: View {
                     .font(.title2)
                     .foregroundStyle(HabitTheme.candy.gradient)
                     .accessibilityHidden(true)
-                Text("See when your cravings peak and everything that sets them off.")
+                Text("See when your cravings peak and your top triggers.")
                     .font(.subheadline.weight(.semibold))
                     .multilineTextAlignment(.center)
                 Button {

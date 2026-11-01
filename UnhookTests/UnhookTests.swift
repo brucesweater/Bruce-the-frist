@@ -237,7 +237,7 @@ struct FormattingTests {
 
     @Test func draftFromPresetCarriesDefaults() {
         let preset = HabitPreset.all.first { $0.id == "smoking" }!
-        let draft = HabitDraft(preset: preset)
+        let draft = HabitDraft(preset: preset, currencyCode: "USD")
         #expect(draft.name == "Smoking")
         #expect(draft.costText == "10")
         #expect(draft.unitName == "cigarettes")
@@ -294,5 +294,90 @@ struct FoundationTests {
         #expect(relapse.trigger == .social)
         #expect(habit.celebratedMilestoneSeconds == 0)
         #expect(habit.preset?.id == "vaping")
+    }
+}
+
+struct LocalPriceTests {
+    @Test func dollarLikeCurrenciesKeepRoundPresetNumbers() {
+        #expect(LocalPrice.suggested(fromUSD: 10, currencyCode: "USD") == 10)
+        #expect(LocalPrice.suggested(fromUSD: 10, currencyCode: "EUR") == 10)
+        #expect(LocalPrice.suggested(fromUSD: 12, currencyCode: "gbp") == 12)
+    }
+
+    @Test func otherCurrenciesScaleToSensibleLocalAmounts() {
+        #expect(LocalPrice.suggested(fromUSD: 10, currencyCode: "JPY") == 1_500)
+        #expect(LocalPrice.suggested(fromUSD: 4, currencyCode: "KRW") == 5_400)
+        #expect(LocalPrice.suggested(fromUSD: 12, currencyCode: "INR") == 1_000)
+        #expect(LocalPrice.suggested(fromUSD: 3, currencyCode: "CNY") == 22)
+    }
+
+    @Test func unknownCurrenciesAndBadInputsStayBlank() {
+        #expect(LocalPrice.suggested(fromUSD: 10, currencyCode: "XYZ") == 0)
+        #expect(LocalPrice.suggested(fromUSD: 0, currencyCode: "USD") == 0)
+        #expect(LocalPrice.suggested(fromUSD: .infinity, currencyCode: "JPY") == 0)
+    }
+
+    @Test func roundingPrintsCleanly() {
+        #expect(LocalPrice.roundedToTwoSignificantDigits(2.76) == 2.8)
+        #expect(HabitDraft.format(LocalPrice.roundedToTwoSignificantDigits(2.76)) == "2.8")
+        #expect(LocalPrice.roundedToTwoSignificantDigits(996) == 1_000)
+    }
+
+    @Test func presetDraftUsesTheLocalCurrency() {
+        let smoking = HabitPreset.all.first { $0.id == "smoking" }!
+        #expect(HabitDraft(preset: smoking, currencyCode: "JPY").costText == "1500")
+        #expect(HabitDraft(preset: smoking, currencyCode: "XYZ").costText.isEmpty)
+    }
+}
+
+struct UndoSlipTests {
+    // Whole-second dates keep the arithmetic exact, so the checks below can use ==.
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+    @Test func undoingASlipRestoresTheStreakWithoutDoubleCounting() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let habit = Habit(name: "Smoking", emoji: "🚬", theme: .fire, streakStart: start)
+        context.insert(habit)
+
+        habit.recordRelapse(at: start.addingTimeInterval(6 * day), in: context)
+        habit.undoLatestRelapse(in: context)
+
+        #expect(habit.relapses.isEmpty)
+        #expect(habit.streakStart == start)
+        #expect(habit.bankedSeconds == 0)
+        #expect(habit.bestStreakSeconds == 0)
+        // Ten days after the original start, ten days are clean: counted once, not twice.
+        #expect(habit.stats(at: start.addingTimeInterval(10 * day)).lifetimeClean == 10 * day)
+    }
+
+    @Test func undoOnlyTakesBackTheLatestSlip() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let habit = Habit(name: "Vaping", emoji: "💨", theme: .grape, streakStart: start)
+        context.insert(habit)
+
+        let firstSlip = start.addingTimeInterval(5 * day)
+        habit.recordRelapse(at: firstSlip, in: context)
+        habit.recordRelapse(at: firstSlip.addingTimeInterval(3 * day), in: context)
+        habit.undoLatestRelapse(in: context)
+
+        #expect(habit.relapses.count == 1)
+        #expect(habit.streakStart == firstSlip)
+        #expect(habit.bankedSeconds == 5 * day)
+        #expect(habit.bestStreakSeconds == 5 * day)
+        #expect(habit.latestRelapse?.date == firstSlip)
+    }
+
+    @Test func undoWithoutSlipsDoesNothing() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let habit = Habit(name: "Sugar", emoji: "🍭", theme: .candy, streakStart: start)
+        context.insert(habit)
+
+        habit.undoLatestRelapse(in: context)
+
+        #expect(habit.streakStart == start)
+        #expect(habit.bankedSeconds == 0)
     }
 }

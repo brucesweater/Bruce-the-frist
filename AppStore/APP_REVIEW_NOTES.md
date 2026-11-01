@@ -34,7 +34,7 @@ QUICK TEST (about 3 minutes)
 3. On the Today tab, open the habit to see the live streak, milestones and the recovery timeline.
 4. Tap "Craving? Tap for SOS" on the Today tab to start guided breathing. SOS is free and never behind the paywall.
 5. Tap "Talk to your coach" on the Today tab to try the coach.
-6. Open the Progress tab for totals, charts, achievements and craving trigger insights. The top trigger is free; peak times and the full breakdown are Pro.
+6. Open the Progress tab for totals, charts, achievements and craving trigger insights. The top trigger is free; peak times and the top-3 breakdown are Pro.
 
 UNHOOK PRO (In-App Purchases, submitted with this version)
 - unhook.pro.yearly: auto-renewable, 1 year, 1-week free trial for eligible new subscribers

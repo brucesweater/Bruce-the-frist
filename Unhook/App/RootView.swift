@@ -6,8 +6,11 @@ struct RootView: View {
     @AppStorage(AppSettings.Keys.hasOnboarded) private var hasOnboarded = false
     /// Bumped when the user erases their data so every navigation stack starts fresh.
     @AppStorage(AppSettings.Keys.dataResetCount) private var dataResetCount = 0
+    @Environment(AppRouter.self) private var router
+    @Query private var habits: [Habit]
 
     var body: some View {
+        @Bindable var router = router
         ZStack {
             if hasOnboarded {
                 AppLockContainer {
@@ -20,6 +23,17 @@ struct RootView: View {
                     withAnimation(.easeInOut(duration: 0.4)) { hasOnboarded = true }
                 }
                 .transition(.opacity)
+            }
+        }
+        // At the root so SOS works from Siri or the Action button even before onboarding is finished.
+        .fullScreenCover(isPresented: $router.isShowingSOS) {
+            SOSView(habit: nil)
+        }
+        .task {
+            // Onboarding saves the first habit just before its paywall. If the app was closed there,
+            // don't run onboarding again (and create a duplicate habit) on the next launch.
+            if !hasOnboarded && !habits.isEmpty {
+                hasOnboarded = true
             }
         }
     }
@@ -44,22 +58,20 @@ struct MainTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
                 .tag(AppRouter.Tab.settings)
         }
-        .fullScreenCover(isPresented: $router.isShowingSOS) {
-            SOSView(habit: nil)
-        }
         .sheet(item: $router.paywallReason) { reason in
             PaywallView(reason: reason)
         }
         // An overlay rather than a full-screen cover: if a sheet is open when a milestone unlocks, the
         // celebration simply waits underneath instead of failing to present and getting stuck.
         .overlay {
-            if let celebration = router.celebration {
+            if let celebration = router.celebration, celebration.isStillValid {
                 MilestoneCelebrationView(celebration: celebration) {
                     router.celebration = nil
                     requestReviewIfAppropriate()
                 }
                 .transition(.opacity)
                 .zIndex(1)
+                .accessibilityAddTraits(.isModal)
             }
         }
         .animation(.easeInOut(duration: 0.35), value: router.celebration?.id)
@@ -83,6 +95,9 @@ struct MainTabView: View {
     }
 
     private func presentPendingCelebration() {
+        if let queued = router.celebration, !queued.isStillValid {
+            router.celebration = nil
+        }
         guard router.celebration == nil, !router.isShowingSOS, router.paywallReason == nil else { return }
         guard let celebration = CelebrationCenter.pendingCelebration(for: habits) else { return }
         CelebrationCenter.markCelebrated(celebration)

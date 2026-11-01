@@ -106,7 +106,7 @@ enum PaywallCopy {
         case .moreGoals:
             String(localized: "Plan for every reward you're saving toward, not just one.")
         case .insights:
-            String(localized: "See when your cravings peak and everything that sets them off, so you can get ahead of them.")
+            String(localized: "See when your cravings peak and your top triggers, so you can get ahead of them.")
         case .appIcons:
             String(localized: "Pick an exclusive app icon and unlock every Pro feature.")
         case .settings:

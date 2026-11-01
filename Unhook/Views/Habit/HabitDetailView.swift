@@ -6,6 +6,7 @@ struct HabitDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppRouter.self) private var router
     @AppStorage(AppSettings.Keys.currencyCode) private var currencyCode = AppSettings.defaultCurrencyCode
 
     @State private var showingSOS = false
@@ -13,6 +14,7 @@ struct HabitDetailView: View {
     @State private var showingEdit = false
     @State private var showingShare = false
     @State private var confirmingDelete = false
+    @State private var confirmingUndoSlip = false
 
     var body: some View {
         ScrollView {
@@ -49,6 +51,11 @@ struct HabitDetailView: View {
             Button("Delete habit and history", role: .destructive, action: deleteHabit)
         } message: {
             Text("This removes the streak, milestones and history for this habit. It can't be undone.")
+        }
+        .confirmationDialog("Undo this slip?", isPresented: $confirmingUndoSlip, titleVisibility: .visible) {
+            Button("Undo slip", action: undoLatestSlip)
+        } message: {
+            Text("Your streak picks up as if the slip never happened.")
         }
     }
 
@@ -156,9 +163,11 @@ struct HabitDetailView: View {
         let detail: String
         let systemImage: String
         let tint: Color
+        var isLatestSlip = false
     }
 
     private var historyItems: [HistoryItem] {
+        let latestSlip = habit.latestRelapse
         let urgeItems = habit.urges.map { urge in
             HistoryItem(
                 id: urge.persistentModelID,
@@ -176,7 +185,8 @@ struct HabitDetailView: View {
                 title: String(localized: "Slipped after \(DurationFormatter.compact(relapse.streakSeconds))"),
                 detail: Self.cravingDetail(trigger: relapse.trigger, intensity: 0, note: relapse.note),
                 systemImage: "arrow.counterclockwise",
-                tint: .pink
+                tint: .pink,
+                isLatestSlip: relapse === latestSlip
             )
         }
         return (urgeItems + relapseItems).sorted { $0.date > $1.date }
@@ -207,7 +217,7 @@ struct HabitDetailView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(items.prefix(20)) { item in
-                        HistoryRow(item: item)
+                        HistoryRow(item: item, onUndo: item.isLatestSlip ? { confirmingUndoSlip = true } : nil)
                     }
                 }
             }
@@ -216,6 +226,8 @@ struct HabitDetailView: View {
 
     private struct HistoryRow: View {
         let item: HistoryItem
+        /// Set only for the most recent slip, which can be taken back.
+        let onUndo: (() -> Void)?
 
         var body: some View {
             HStack(spacing: 12) {
@@ -232,11 +244,25 @@ struct HabitDetailView: View {
                     }
                 }
                 Spacer()
-                Text(item.date, format: .relative(presentation: .named))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(item.date, format: .relative(presentation: .named))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let onUndo {
+                        Button("Undo", action: onUndo)
+                            .font(.caption.weight(.semibold))
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Undo this slip")
+                    }
+                }
             }
         }
+    }
+
+    private func undoLatestSlip() {
+        habit.undoLatestRelapse(in: context)
+        NotificationManager.scheduleMilestones(for: habit)
+        Haptics.success()
     }
 
     private func deleteHabit() {
@@ -244,6 +270,9 @@ struct HabitDetailView: View {
         let habit = self.habit
         let context = self.context
         NotificationManager.cancelMilestones(for: habit.uuid)
+        if router.celebration?.habit === habit {
+            router.celebration = nil
+        }
         dismiss()
         Task {
             try? await Task.sleep(for: .milliseconds(450))

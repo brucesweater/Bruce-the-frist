@@ -107,7 +107,7 @@ The IDs must match `Store.ProductID` in `Unhook/Services/Store.swift` **exactly*
 
 | Product ID | Type | Suggested US price |
 |---|---|---|
-| `unhook.pro.lifetime` | **Non-consumable** | $59.99 |
+| `unhook.pro.lifetime` | **Non-consumable** | $49.99 |
 
 **c) For each of the three products**
 
@@ -117,7 +117,7 @@ The IDs must match `Store.ProductID` in `Unhook/Services/Store.swift` **exactly*
 - **Family Sharing:** decide before launch. **It can't be turned off once it's on.** The store code already handles shared purchases. Turning it on is generous and helps word of mouth. Leaving it off protects revenue per household.
 - Status must reach **Ready to Submit**.
 
-**d) Local testing:** the shared scheme points at `Unhook.storekit` at the repository root. If the file isn't there, Simulator purchases fail and the paywall shows "Purchases aren't available", so create it in Xcode (*File → New → File → StoreKit Configuration File*). Add the "Unhook Pro" subscription group with yearly (level 1, $29.99, 1-week free trial) and monthly (level 2, $4.99), plus the non-consumable lifetime ($59.99), using the same product IDs. Keep it in sync with App Store Connect, or Simulator testing will drift from production. (You can also start it with *Sync this file with an app in App Store Connect* once the products exist.)
+**d) Local testing:** the shared scheme points at `Unhook.storekit` at the repository root. The file is already in the repo with the products below. If you ever recreate it in Xcode (*File → New → File → StoreKit Configuration File*), add the "Unhook Pro" subscription group with yearly (level 1, $29.99, 1-week free trial) and monthly (level 2, $4.99), plus the non-consumable lifetime ($49.99), using the same product IDs. Keep it in sync with App Store Connect, or Simulator testing will drift from production. (You can also start it with *Sync this file with an app in App Store Connect* once the products exist.)
 
 ### 5. Answer App Privacy
 

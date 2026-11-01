@@ -103,15 +103,21 @@ struct HabitFormView: View {
         }
     }
 
+    /// The current streak can't start before the last slip; otherwise that clean time would count twice.
+    /// (A slip logged by mistake can be undone from the habit's history instead.)
+    private var earliestQuitDate: Date {
+        min(editing?.latestRelapse?.date ?? .distantPast, .now)
+    }
+
     private var dateSection: some View {
         Section {
-            DatePicker("Quit date", selection: $draft.quitDate, in: ...Date.now)
+            DatePicker("Quit date", selection: $draft.quitDate, in: earliestQuitDate...Date.now)
         } header: {
             Text(editing == nil ? "When did you quit?" : "Current streak started")
         } footer: {
             Text(editing == nil
                  ? "Already clean for a while? Pick the date and Unhook counts it."
-                 : "Fix the date if you set it wrong.")
+                 : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history.")
         }
     }
 
@@ -202,7 +208,7 @@ struct HabitFormView: View {
         habit.unitsPerDay = HabitDraft.parse(draft.unitsText)
         habit.unitName = draft.unitName.trimmingCharacters(in: .whitespacesAndNewlines)
         habit.reasons = draft.cleanedReasons
-        habit.streakStart = min(draft.quitDate, .now)
+        habit.streakStart = min(max(draft.quitDate, earliestQuitDate), .now)
         // Moving the quit date later must not leave an old celebration record that would skip milestones.
         let reached = Milestone.latest(reachedBy: habit.stats().currentStreak)?.seconds ?? 0
         habit.celebratedMilestoneSeconds = min(habit.celebratedMilestoneSeconds, reached)

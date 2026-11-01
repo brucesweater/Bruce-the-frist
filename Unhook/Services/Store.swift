@@ -24,6 +24,12 @@ final class Store {
     private(set) var hasLoadedProducts = false
     private(set) var isPurchasing = false
     var lastErrorMessage: String?
+    /// Set when a purchase is waiting for approval (Ask to Buy, or a payment the bank must confirm).
+    private(set) var hasPendingPurchase = false
+
+    enum RestoreOutcome: Equatable {
+        case restored, nothingFound, cancelled, failed
+    }
 
     var isPro: Bool { !purchasedProductIDs.isEmpty }
 
@@ -66,6 +72,9 @@ final class Store {
             owned.insert(transaction.productID)
         }
         purchasedProductIDs = owned
+        if !owned.isEmpty {
+            hasPendingPurchase = false
+        }
     }
 
     /// Buys `product`. Returns true when the purchase went through (not cancelled or awaiting approval).
@@ -83,7 +92,10 @@ final class Store {
                 await transaction.finish()
                 await refreshEntitlements()
                 return true
-            case .pending, .userCancelled:
+            case .pending:
+                hasPendingPurchase = true
+                return false
+            case .userCancelled:
                 return false
             @unknown default:
                 return false
@@ -94,15 +106,21 @@ final class Store {
         }
     }
 
-    func restorePurchases() async {
+    /// Syncs with the App Store and reports what happened, so screens can tell "nothing to restore" apart
+    /// from the user simply closing the Apple ID prompt.
+    @discardableResult
+    func restorePurchases() async -> RestoreOutcome {
+        var outcome = RestoreOutcome.nothingFound
         do {
             try await AppStore.sync()
         } catch StoreKitError.userCancelled {
-            // Dismissing the Apple ID prompt isn't an error worth showing.
+            outcome = .cancelled
         } catch {
             lastErrorMessage = error.localizedDescription
+            outcome = .failed
         }
         await refreshEntitlements()
+        return isPro ? .restored : outcome
     }
 
     func product(id: String) -> Product? {

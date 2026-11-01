@@ -1,6 +1,7 @@
 import StoreKit
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
@@ -122,8 +123,17 @@ struct SettingsView: View {
             Text("Reminders")
         } footer: {
             if notificationsDenied {
-                Text("Notifications are off for Unhook. Turn them on in the Settings app.")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Notifications are off for Unhook, so reminders and milestone alerts can't arrive.")
+                    Button("Turn on notifications") {
+                        Task { await turnOnNotifications() }
+                    }
+                    .font(.footnote.weight(.semibold))
+                }
             }
+        }
+        .task {
+            await refreshNotificationStatus()
         }
         .onChange(of: reminderEnabled) { _, enabled in
             Task { await updateReminder(enabled: enabled) }
@@ -414,23 +424,28 @@ struct SettingsView: View {
         isRestoring = true
         // Only report errors from this restore, not an older one (a failed product load at launch, say).
         store.lastErrorMessage = nil
-        await store.restorePurchases()
+        let outcome = await store.restorePurchases()
         isRestoring = false
 
-        if store.isPro {
+        switch outcome {
+        case .restored:
             Haptics.success()
             alert = SettingsAlert(
                 title: String(localized: "Purchases restored"),
                 message: String(localized: "Unhook Pro is active. Thank you for supporting Unhook! 💜")
             )
-        } else if let message = store.lastErrorMessage {
+        case .failed:
+            let message = store.lastErrorMessage ?? ""
             store.lastErrorMessage = nil
             alert = SettingsAlert(title: String(localized: "Couldn't restore purchases"), message: message)
-        } else {
+        case .nothingFound:
             alert = SettingsAlert(
                 title: String(localized: "No purchases found"),
                 message: String(localized: "We couldn't find an earlier Unhook Pro purchase for this Apple ID. Purchases are restored for the Apple ID you're signed in with.")
             )
+        case .cancelled:
+            // The user closed the Apple ID prompt; nothing to report.
+            break
         }
     }
 
@@ -475,7 +490,34 @@ struct SettingsView: View {
         requestReview()
     }
 
+    /// The toggles can be on while the system permission was never granted (the user chose "Maybe later"
+    /// in onboarding, or turned notifications off in the Settings app). Say so instead of failing silently.
+    private func refreshNotificationStatus() async {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        let allowed = status == .authorized || status == .provisional || status == .ephemeral
+        notificationsDenied = !allowed && (reminderEnabled || milestoneAlertsEnabled)
+    }
+
+    private func turnOnNotifications() async {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        if status == .notDetermined {
+            if await NotificationManager.requestAuthorization() {
+                notificationsDenied = false
+                if reminderEnabled {
+                    NotificationManager.scheduleDailyReminder(hour: reminderHour, minute: reminderMinute)
+                }
+                for habit in habits {
+                    NotificationManager.scheduleMilestones(for: habit)
+                }
+            }
+        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+            _ = await UIApplication.shared.open(url)
+        }
+    }
+
     private func eraseAll() {
+        // Drop anything still pointing at the habits about to be deleted.
+        router.celebration = nil
         NotificationManager.cancelAll()
         relapses.forEach { context.delete($0) }
         urges.forEach { context.delete($0) }

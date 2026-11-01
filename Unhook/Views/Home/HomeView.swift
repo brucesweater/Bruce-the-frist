@@ -11,6 +11,8 @@ struct HomeView: View {
 
     @State private var showingAddHabit = false
     @State private var showingPledge = false
+    /// Set when "add habit" opened the paywall, so buying Pro carries straight on to adding the habit.
+    @State private var addHabitAfterUpgrade = false
 
     private var pledgedToday: Bool {
         guard let latest = pledges.first else { return false }
@@ -25,6 +27,9 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if AppModelContainer.isUsingTemporaryStore {
+                        StorageWarningBanner()
+                    }
                     greeting
                     if habits.isEmpty {
                         EmptyHomeView(addAction: addHabit)
@@ -72,6 +77,9 @@ struct HomeView: View {
                 PledgeSheet()
                     .presentationDetents([.medium])
             }
+            .onChange(of: router.paywallReason == nil) { _, paywallClosed in
+                if paywallClosed { continueAfterPaywall() }
+            }
             .onAppear {
                 if habits.isEmpty && !didPromptFirstHabit {
                     didPromptFirstHabit = true
@@ -106,7 +114,19 @@ struct HomeView: View {
         if ProLimits.canAddHabit(currentCount: habits.count, isPro: store.isPro) {
             showingAddHabit = true
         } else {
+            addHabitAfterUpgrade = true
             router.showPaywall(.moreHabits)
+        }
+    }
+
+    private func continueAfterPaywall() {
+        guard addHabitAfterUpgrade else { return }
+        addHabitAfterUpgrade = false
+        guard store.isPro else { return }
+        Task {
+            // Let the paywall finish sliding away before the next sheet comes up.
+            try? await Task.sleep(for: .milliseconds(500))
+            showingAddHabit = true
         }
     }
 
@@ -122,6 +142,27 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+/// Shown only if the saved data couldn't be opened, so the user isn't silently losing what they enter.
+private struct StorageWarningBanner: View {
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Your saved progress couldn't be opened")
+                    .font(.subheadline.weight(.semibold))
+                Text("Please close Unhook completely and open it again. Until then, changes won't be kept.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

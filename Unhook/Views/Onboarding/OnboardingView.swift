@@ -14,6 +14,7 @@ struct OnboardingView: View {
     @State private var answers = OnboardingAnswers()
     @State private var isMovingForward = true
     @State private var didFinish = false
+    @State private var didSaveHabit = false
 
     init(onFinish: @escaping () -> Void) {
         self.onFinish = onFinish
@@ -107,6 +108,8 @@ struct OnboardingView: View {
 
     /// Members who already have Pro (restored, or Family Sharing) skip straight past the paywall.
     private func leaveReminders() {
+        // Save before the paywall, so closing the app there never loses the user's setup.
+        saveHabit()
         if store.isPro {
             finish()
         } else {
@@ -116,9 +119,9 @@ struct OnboardingView: View {
 
     // MARK: Finish
 
-    private func finish() {
-        guard !didFinish else { return }
-        didFinish = true
+    private func saveHabit() {
+        guard !didSaveHabit else { return }
+        didSaveHabit = true
 
         let habit = answers.makeHabit()
         context.insert(habit)
@@ -126,6 +129,12 @@ struct OnboardingView: View {
         try? context.save()
         NotificationManager.scheduleMilestones(for: habit)
         UserDefaults.standard.set(true, forKey: AppSettings.Keys.didPromptFirstHabit)
+    }
+
+    private func finish() {
+        guard !didFinish else { return }
+        didFinish = true
+        saveHabit()
         Haptics.success()
         onFinish()
     }

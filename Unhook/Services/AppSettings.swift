@@ -21,6 +21,11 @@ enum AppSettings {
         Locale.current.currency?.identifier ?? "USD"
     }
 
+    /// The currency the user picked in Settings, or their region's currency.
+    static var currencyCode: String {
+        UserDefaults.standard.string(forKey: Keys.currencyCode) ?? defaultCurrencyCode
+    }
+
     static var hapticsEnabled: Bool {
         UserDefaults.standard.object(forKey: Keys.hapticsEnabled) as? Bool ?? true
     }

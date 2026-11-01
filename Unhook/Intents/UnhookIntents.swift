@@ -13,14 +13,9 @@ struct OpenSOSIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        let router = AppRouter.shared
-        // Another full-screen moment would block the SOS screen from appearing. SOS always wins.
-        if router.celebration != nil || router.paywallReason != nil {
-            router.celebration = nil
-            router.paywallReason = nil
-            try? await Task.sleep(for: .milliseconds(600))
-        }
-        router.isShowingSOS = true
+        // Closes anything that would block the SOS screen. A pending milestone celebration is an overlay,
+        // not a presentation, so it stays put and shows again after SOS.
+        await AppRouter.shared.requestSOS()
         return .result()
     }
 }
