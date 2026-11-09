@@ -21,7 +21,7 @@ struct MilestoneListView: View {
                     .foregroundStyle(Palette.textSecondary)
                 VStack(spacing: 0) {
                     ForEach(Milestone.all) { milestone in
-                        MilestoneRow(
+                        HabitMilestoneRow(
                             milestone: milestone,
                             date: habit.streakStart.addingTimeInterval(milestone.seconds),
                             status: status(of: milestone, elapsed: elapsed, next: next)
@@ -39,7 +39,7 @@ struct MilestoneListView: View {
     }
 }
 
-private struct MilestoneRow: View {
+private struct HabitMilestoneRow: View {
     let milestone: Milestone
     let date: Date
     let status: HabitDetailNode.Status

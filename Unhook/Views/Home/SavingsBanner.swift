@@ -1,54 +1,83 @@
 import SwiftUI
+import SwiftData
 
-/// Money and time won back across all habits, ticking up live.
+/// Today's three numbers across every habit, ticking up live: money saved, time reclaimed and cravings beaten.
 struct SavingsBanner: View {
     let habits: [Habit]
     let currencyCode: String
 
+    @Query private var urges: [Urge]
+
     var body: some View {
+        let cravingsBeaten = urges.filter(\.resisted).count
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             let totals = HabitTotals(habits: habits, at: timeline.date)
-            HStack(spacing: 0) {
-                metric(
-                    title: "Money saved",
+            HStack(spacing: 10) {
+                TodayStatTile(
                     value: MoneyFormatter.precise(totals.moneySaved, code: currencyCode),
+                    title: "Money saved",
                     systemImage: "banknote.fill",
-                    tint: .green
+                    tint: Palette.money
                 )
-                Divider()
-                    .frame(height: 44)
-                metric(
-                    title: "Time reclaimed",
+                TodayStatTile(
                     value: DurationFormatter.minutes(totals.minutesReclaimed),
+                    title: "Time reclaimed",
                     systemImage: "clock.fill",
-                    tint: .blue
+                    tint: Palette.time
+                )
+                TodayStatTile(
+                    value: cravingsBeaten.formatted(),
+                    title: "Cravings beaten",
+                    systemImage: "shield.lefthalf.filled",
+                    tint: Palette.cravings
                 )
             }
-            .padding(.vertical, 16)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            // Same height for all three tiles.
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
+}
 
-    private func metric(title: LocalizedStringKey, value: String, systemImage: String, tint: Color) -> some View {
-        VStack(spacing: 6) {
-            Label {
-                Text(title)
-            } icon: {
-                Image(systemName: systemImage)
-                    .foregroundStyle(tint)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
+/// One glass tile in the row, washed in its number's color.
+private struct TodayStatTile: View {
+    let value: String
+    let title: LocalizedStringKey
+    let systemImage: String
+    let tint: Color
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 30)
+            Spacer(minLength: 4)
             Text(value)
-                .font(.title2.bold())
+                .font(.display(22))
+                .foregroundStyle(Palette.textPrimary)
                 .monospacedDigit()
-                .contentTransition(.numericText())
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText())
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: value)
+            Text(title)
+                .microLabel()
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 8)
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
+        .glassSurface(cornerRadius: 22, tint: tint)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(value))
     }
+}
+
+#Preview {
+    SavingsBanner(habits: [PreviewData.sampleHabit], currencyCode: "USD")
+        .padding()
+        .frame(maxHeight: .infinity)
+        .background(DawnBackground())
+        .previewEnvironment()
 }

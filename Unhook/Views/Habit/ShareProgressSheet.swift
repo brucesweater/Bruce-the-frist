@@ -98,7 +98,7 @@ struct ShareCardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ShareCardOrb(progress: orbProgress, emoji: habit.emoji)
+            HabitShareOrb(progress: orbProgress, emoji: habit.emoji)
             dayCount
             daysLabel
                 .padding(.top, 4)
@@ -111,7 +111,7 @@ struct ShareCardView: View {
         .padding(.top, 26)
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { ShareCardBackground() }
+        .background { HabitShareBackground() }
     }
 
     private var dayCount: some View {
@@ -142,10 +142,10 @@ struct ShareCardView: View {
         .minimumScaleFactor(0.7)
     }
 
-    private var metrics: [ShareCardMetric] {
-        var items: [ShareCardMetric] = []
+    private var metrics: [HabitShareMetric] {
+        var items: [HabitShareMetric] = []
         if stats.moneySaved >= 1 {
-            items.append(ShareCardMetric(
+            items.append(HabitShareMetric(
                 id: "money",
                 value: MoneyFormatter.rounded(stats.moneySaved, code: currencyCode),
                 label: "saved",
@@ -153,14 +153,14 @@ struct ShareCardView: View {
             ))
         }
         if stats.minutesReclaimed >= 1 {
-            items.append(ShareCardMetric(
+            items.append(HabitShareMetric(
                 id: "time",
                 value: DurationFormatter.minutes(stats.minutesReclaimed),
                 label: "reclaimed",
                 color: Palette.time
             ))
         }
-        items.append(ShareCardMetric(
+        items.append(HabitShareMetric(
             id: "milestone",
             value: Milestone.latest(reachedBy: stats.currentStreak)?.title ?? String(localized: "Day one"),
             label: "milestone",
@@ -178,7 +178,7 @@ struct ShareCardView: View {
                         .fill(Color.white.opacity(0.12))
                         .frame(width: 1, height: 30)
                 }
-                ShareCardMetricView(metric: metric)
+                HabitShareMetricView(metric: metric)
             }
         }
         .padding(.vertical, 12)
@@ -204,15 +204,15 @@ struct ShareCardView: View {
 }
 
 /// One figure on the share card, e.g. "$566" "saved".
-private struct ShareCardMetric: Identifiable {
+private struct HabitShareMetric: Identifiable {
     let id: String
     let value: String
     let label: LocalizedStringKey
     let color: Color
 }
 
-private struct ShareCardMetricView: View {
-    let metric: ShareCardMetric
+private struct HabitShareMetricView: View {
+    let metric: HabitShareMetric
 
     var body: some View {
         VStack(spacing: 3) {
@@ -236,7 +236,7 @@ private struct ShareCardMetricView: View {
 }
 
 /// The share card's sky: deep night at the top, warm dawn light rising from the bottom, a scatter of stars.
-private struct ShareCardBackground: View {
+private struct HabitShareBackground: View {
     var body: some View {
         ZStack {
             Brand.night
@@ -259,7 +259,7 @@ private struct ShareCardBackground: View {
 
 /// A still version of the dawn orb with the habit's emoji pinned to its edge. Its glow is a radial gradient
 /// rather than a blur, so it renders the same on screen and in the shared image.
-private struct ShareCardOrb: View {
+private struct HabitShareOrb: View {
     let progress: Double
     let emoji: String
 

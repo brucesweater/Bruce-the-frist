@@ -74,9 +74,9 @@ struct HabitHeroView: View {
 
     private func clock(_ parts: DurationFormatter.Parts) -> some View {
         HStack(spacing: 8) {
-            HeroTimePill(value: parts.hours, unit: "hrs")
-            HeroTimePill(value: parts.minutes, unit: "min")
-            HeroTimePill(value: parts.seconds, unit: "sec")
+            HabitHeroTimePill(value: parts.hours, unit: "hrs")
+            HabitHeroTimePill(value: parts.minutes, unit: "min")
+            HabitHeroTimePill(value: parts.seconds, unit: "sec")
         }
         .animation(tickAnimation, value: parts)
     }
@@ -112,7 +112,7 @@ struct HabitHeroView: View {
 }
 
 /// Hours, minutes or seconds of the live streak in a small glass pill.
-private struct HeroTimePill: View {
+private struct HabitHeroTimePill: View {
     let value: Int
     let unit: LocalizedStringKey
 

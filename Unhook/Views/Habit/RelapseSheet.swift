@@ -16,52 +16,95 @@ struct RelapseSheet: View {
         habit.stats(at: date).lifetimeClean
     }
 
+    private static let rowBackground = Palette.surface.opacity(0.72)
+
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Slips happen. 💛")
-                            .font(.title3.bold())
-                        Text("A slip doesn't erase your progress. Your \(DurationFormatter.compact(savedProgress)) of clean time stays in your totals. What matters is the next hour.")
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                Section("When did it happen?") {
-                    DatePicker("Date", selection: $date, in: min(habit.streakStart, .now)...Date.now)
-                }
-
-                Section {
-                    CravingTriggerPicker(selection: $trigger, tint: habit.theme.gradient)
-                        .padding(.vertical, 6)
-                } header: {
-                    Text("What set it off?")
-                } footer: {
-                    Text("Optional. Spotting your triggers is the fastest way to beat them next time.")
-                }
-
-                Section("Anything else? (optional)") {
-                    TextField("Where you were, how you felt…", text: $note, axis: .vertical)
-                        .lineLimit(2...4)
-                }
+                introSection
+                dateSection
+                triggerSection
+                noteSection
             }
-            .navigationTitle("Reset streak")
+            .dawnScreenBackground(glow: 0.3)
+            .tint(Palette.amber)
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Log a slip")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Reset", action: reset)
-                        .fontWeight(.semibold)
-                }
             }
+            .safeAreaInset(edge: .bottom) { confirmBar }
         }
     }
 
-    private func reset() {
+    private var introSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                IconBadge(systemImage: "sunrise.fill", tint: Palette.amber, size: 40)
+                Text("A slip isn't the end. Your earlier clean time stays banked, and a new streak starts now.")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Palette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Chip(text: Text("\(DurationFormatter.compact(savedProgress)) of clean time banked"), tint: Palette.mint)
+            }
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
+        }
+        .listRowBackground(Self.rowBackground)
+    }
+
+    private var dateSection: some View {
+        Section {
+            DatePicker("Date", selection: $date, in: min(habit.streakStart, .now)...Date.now)
+        } header: {
+            Text("When did it happen?")
+        }
+        .listRowBackground(Self.rowBackground)
+        .listRowSeparatorTint(Palette.hairline)
+    }
+
+    private var triggerSection: some View {
+        Section {
+            CravingTriggerPicker(selection: $trigger, tint: habit.theme.gradient)
+                .padding(.vertical, 6)
+        } header: {
+            Text("What set it off?")
+        } footer: {
+            Text("Optional. Spotting your triggers is the fastest way to beat them next time.")
+        }
+        .listRowBackground(Self.rowBackground)
+    }
+
+    private var noteSection: some View {
+        Section {
+            TextField("Where you were, how you felt…", text: $note, axis: .vertical)
+                .lineLimit(2...4)
+        } header: {
+            Text("Anything else? (optional)")
+        }
+        .listRowBackground(Self.rowBackground)
+    }
+
+    private var confirmBar: some View {
+        Button(action: logSlip) {
+            Text("Log slip and start fresh")
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background {
+            LinearGradient(colors: [Palette.ink.opacity(0), Palette.ink.opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func logSlip() {
         habit.recordRelapse(
             at: date,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines),
