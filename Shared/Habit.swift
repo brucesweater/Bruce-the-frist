@@ -76,9 +76,12 @@ extension Habit {
         HabitPreset.preset(id: presetID)
     }
 
-    /// The most recent slip. The current streak can't start before it.
+    /// The most recent slip. The current streak can't start before it. A slip logged at the very start of a streak
+    /// shares its date with the slip before it and lasted 0 seconds, so on equal dates the shorter one is the later one.
     var latestRelapse: Relapse? {
-        relapses.max { $0.date < $1.date }
+        relapses.max { lhs, rhs in
+            lhs.date != rhs.date ? lhs.date < rhs.date : lhs.streakSeconds > rhs.streakSeconds
+        }
     }
 
     func stats(at now: Date = .now) -> HabitStats {

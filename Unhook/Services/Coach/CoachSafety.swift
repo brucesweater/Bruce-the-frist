@@ -9,11 +9,14 @@ enum CoachSafety {
     /// Phrases, already normalized (see `CoachText.normalize`), that mean the user may be in danger.
     /// Matched as whole words, so "I want to diet" or "this craving is killing me" don't trigger it.
     static let crisisPhrases: [String] = [
-        "suicide", "suicidal", "kill myself", "killing myself", "killed myself",
-        "end my life", "ending my life", "end it all", "take my own life", "taking my own life",
+        "suicide", "suicidal", "kill myself", "killing myself", "killed myself", "kill my self", "kms",
+        "end my life", "ending my life", "end my own life", "ending my own life", "end it all", "ending it all",
+        "take my own life", "taking my own life",
         "want to die", "wanna die", "want to be dead", "wish i was dead", "wish i were dead", "better off dead",
         "dont want to live", "dont want to be alive", "dont want to be here anymore", "do not want to live",
-        "no reason to live", "nothing to live for", "not worth living", "no point in living", "no point living",
+        "do not want to be alive", "dont wanna live", "dont wanna be alive", "dont wanna be here anymore",
+        "no reason to live", "nothing to live for", "not worth living", "isnt worth living", "no point in living",
+        "no point living",
         "dont want to wake up", "rather be dead", "hang myself", "hanging myself", "shoot myself",
         "self harm", "selfharm", "hurt myself", "hurting myself", "harm myself", "harming myself",
         "cut myself", "cutting myself", "overdose", "overdosed", "overdosing", "unalive",
@@ -25,13 +28,16 @@ enum CoachSafety {
     /// and specific, and erring toward showing help: a false alarm costs a helpline banner, a miss costs far more.
     static let multilingualCrisisPhrases: [String] = [
         // Spanish
-        "quiero morir", "suicid", "matarme", "no quiero vivir", "quitarme la vida", "acabar con mi vida", "hacerme dano",
+        "quiero morir", "ganas de morir", "suicid", "matarme", "no quiero vivir", "quitarme la vida", "acabar con mi vida",
+        "hacerme dano",
         // Portuguese
-        "quero morrer", "me matar", "nao quero viver", "tirar minha vida", "acabar com minha vida", "me machucar",
+        "quero morrer", "vontade de morrer", "me matar", "nao quero viver", "tirar minha vida", "acabar com minha vida",
+        "me machucar",
         // French
-        "je veux mourir", "me tuer", "en finir avec la vie", "plus envie de vivre", "me faire du mal",
+        "je veux mourir", "envie de mourir", "me tuer", "en finir avec la vie", "plus envie de vivre", "me faire du mal",
         // German
-        "ich will sterben", "selbstmord", "mich umbringen", "nicht mehr leben", "mir das leben nehmen", "mir wehtun",
+        "ich will sterben", "mochte sterben", "selbstmord", "mich umbringen", "nicht mehr leben", "mir das leben nehmen",
+        "mir wehtun",
         // Italian
         "voglio morire", "uccidermi", "non voglio piu vivere", "farla finita", "farmi del male",
         // Dutch

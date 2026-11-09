@@ -25,7 +25,11 @@ final class ScreenshotTests: XCTestCase {
         let app = launch()
         let card = app.buttons["habitCard"].firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 10), "Today shows the habit cards")
-        card.tap()
+        guard scrollTo(card, in: app) else {
+            XCTFail("The habit card can be scrolled on screen")
+            return
+        }
+        tapCenter(card, in: app)
         pause(1.2)
         snap("04-habit-detail", app)
         app.swipeUp()
@@ -37,7 +41,7 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func test03SOS() {
         let app = launch(screen: "sos")
-        pause(2)
+        pause(0.6)
         snap("07-sos", app)
         pause(5)
         snap("08-sos-breathing", app)
@@ -48,7 +52,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch()
         let entry = app.buttons["coachEntry"].firstMatch
         if scrollTo(entry, in: app) {
-            entry.tap()
+            tapCenter(entry, in: app)
             pause(1.5)
             snap("09-coach", app)
         } else {
@@ -72,7 +76,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch()
         let allGoals = app.buttons["allGoalsButton"].firstMatch
         if scrollTo(allGoals, in: app) {
-            allGoals.tap()
+            tapCenter(allGoals, in: app)
             pause(1.2)
             snap("13-goals", app)
         } else {
@@ -103,7 +107,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch()
         let add = app.buttons["addHabitButton"].firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 10), "Today has an add button")
-        add.tap()
+        tapCenter(add, in: app)
         pause(1.2)
         snap("18-add-habit", app)
     }
@@ -113,7 +117,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(screen: "settings")
         let row = app.buttons["founderRow"].firstMatch
         if scrollTo(row, in: app) {
-            row.tap()
+            tapCenter(row, in: app)
             pause(1.5)
             snap("19-founder", app)
             app.swipeUp()
@@ -213,12 +217,47 @@ final class ScreenshotTests: XCTestCase {
     /// Scrolls the current screen until the element is on screen. Returns false if it never appears.
     @MainActor
     private func scrollTo(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 6) -> Bool {
-        if element.waitForExistence(timeout: 6) && element.isHittable { return true }
+        if element.waitForExistence(timeout: 6) && isOnScreen(element, in: app) { return true }
         for _ in 0..<maxSwipes {
             app.swipeUp()
-            if element.exists && element.isHittable { return true }
+            if isOnScreen(element, in: app) { return true }
         }
-        return element.exists && element.isHittable
+        return isOnScreen(element, in: app)
+    }
+
+    /// Whether the element's center is in the part of the screen a finger can reach: below the status bar and
+    /// above Today's SOS button and the tab bar. Doesn't rely on `isHittable`, which XCUITest sometimes gets
+    /// wrong for SwiftUI views.
+    @MainActor
+    private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        let screen = app.windows.firstMatch.frame
+        guard !frame.isEmpty, !screen.isEmpty else { return false }
+        let reachable = CGRect(x: screen.minX, y: screen.minY + 90, width: screen.width, height: screen.height - 90 - 200)
+        return reachable.contains(CGPoint(x: frame.midX, y: frame.midY))
+    }
+
+    /// Taps the middle of the element, where a finger would. When XCUITest says the element isn't hittable, the
+    /// accessibility hierarchy is printed (lines start with "AXDUMP") so the CI log shows what covers it.
+    @MainActor
+    private func tapCenter(_ element: XCUIElement, in app: XCUIApplication) {
+        if !element.isHittable {
+            dumpHierarchy(app, reason: "\(element.identifier) '\(element.label)' at \(element.frame) is not hittable")
+        }
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    @MainActor private static var dumpsLeft = 2
+
+    @MainActor
+    private func dumpHierarchy(_ app: XCUIApplication, reason: String) {
+        guard Self.dumpsLeft > 0 else { return }
+        Self.dumpsLeft -= 1
+        print("AXDUMP | \(name): \(reason)")
+        for line in app.debugDescription.split(separator: "\n").prefix(320) {
+            print("AXDUMP | \(line)")
+        }
     }
 
     /// Taps the first button whose label matches one of `labels` (or contains it, with `partial`).
@@ -232,10 +271,10 @@ final class ScreenshotTests: XCTestCase {
                 button = app.buttons[label].firstMatch
             }
             if button.waitForExistence(timeout: 2) {
-                if !button.isHittable {
+                if !isOnScreen(button, in: app) {
                     _ = scrollTo(button, in: app, maxSwipes: 3)
                 }
-                button.tap()
+                tapCenter(button, in: app)
                 return
             }
         }

@@ -48,7 +48,7 @@ jobs:
             -destination "id=${{ steps.sim.outputs.id }}" \
             -resultBundlePath UITestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee xcodebuild-uitests.log | grep -E "error:|Test Case .*(passed|failed)|Test case .*(passed|failed)|XCTAssert|XCTFail|failed:|\*\* TEST"
+            2>&1 | tee xcodebuild-uitests.log | grep -E "error:|Test Case .*(passed|failed)|Test case .*(passed|failed)|XCTAssert|XCTFail|failed:|AXDUMP|\*\* TEST"
           status=${PIPESTATUS[0]}
           echo "UI tests finished with status $status on ${{ steps.sim.outputs.name }}"
           ls build/screenshots

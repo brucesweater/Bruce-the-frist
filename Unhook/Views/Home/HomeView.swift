@@ -16,13 +16,10 @@ struct HomeView: View {
     /// Set when "add habit" opened the paywall, so buying Pro carries straight on to adding the habit.
     @State private var addHabitAfterUpgrade = false
 
-    private var pledgedToday: Bool {
+    /// Whether the latest pledge belongs to the day containing `date`.
+    private func hasPledged(on date: Date) -> Bool {
         guard let latest = pledges.first else { return false }
-        return Calendar.current.isDateInToday(latest.day)
-    }
-
-    private var pledgeStreak: Int {
-        StreakCalculator.consecutiveDays(pledges.map(\.day))
+        return Calendar.current.isDate(latest.day, inSameDayAs: date)
     }
 
     /// The sky behind Today warms as the longest streak passes more milestones.
@@ -97,8 +94,15 @@ struct HomeView: View {
         TodayHeroView(habits: habits)
         SavingsBanner(habits: habits, currencyCode: currencyCode)
             .todayScrollReveal()
-        PledgeCard(pledgedToday: pledgedToday, streak: pledgeStreak) {
-            if !pledgedToday { showingPledge = true }
+        // Refreshes each minute so a new day's pledge opens at midnight, even if Today stays on screen.
+        TimelineView(.everyMinute) { timeline in
+            let pledgedToday = hasPledged(on: timeline.date)
+            PledgeCard(
+                pledgedToday: pledgedToday,
+                streak: StreakCalculator.consecutiveDays(pledges.map(\.day), now: timeline.date)
+            ) {
+                if !pledgedToday { showingPledge = true }
+            }
         }
         .todayScrollReveal()
         MissionsCard()

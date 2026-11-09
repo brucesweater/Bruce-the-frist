@@ -603,6 +603,11 @@ struct SettingsView: View {
         switch result {
         case .success:
             appLockEnabled = true
+            // Milestone alerts are worded when they're scheduled. Reword the pending ones now, so they stop naming
+            // the habit on the Lock Screen.
+            for habit in habits {
+                NotificationManager.scheduleMilestones(for: habit)
+            }
             Haptics.success()
         case .cancelled:
             break
