@@ -1,89 +1,143 @@
 import SwiftUI
 
-/// The big, live streak counter at the top of a habit's page.
+/// The live streak at the top of a habit's page: a dawn orb that brightens as the next milestone gets closer,
+/// the day count in big rounded numerals, a ticking clock and a slim bar toward the next milestone.
 struct HabitHeroView: View {
     let habit: Habit
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            let elapsed = habit.stats(at: timeline.date).currentStreak
-            let parts = DurationFormatter.parts(elapsed)
-            VStack(spacing: 14) {
-                Text(habit.emoji)
-                    .font(.system(size: 52))
-                Text("FREE FOR")
-                    .font(.caption.weight(.heavy))
-                    .tracking(2)
-                    .opacity(0.85)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(parts.days)")
-                        .font(.system(size: 76, weight: .heavy, design: .rounded))
-                        .contentTransition(.numericText())
-                    Text(parts.days == 1 ? "day" : "days")
-                        .font(.title2.weight(.bold))
-                }
-                .monospacedDigit()
-                HStack(spacing: 10) {
-                    TimeUnitView(value: parts.hours, label: "hours")
-                    TimeUnitView(value: parts.minutes, label: "min")
-                    TimeUnitView(value: parts.seconds, label: "sec")
-                }
-                milestoneProgress(elapsed)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 28)
-            .padding(.horizontal, 20)
-            .background(habit.theme.gradient, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-            .shadow(color: habit.theme.accent.opacity(0.35), radius: 18, y: 10)
-            .animation(.easeInOut(duration: 0.3), value: parts)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Free for \(parts.days) days, \(parts.hours) hours and \(parts.minutes) minutes")
+            content(elapsed: habit.stats(at: timeline.date).currentStreak)
         }
     }
 
+    private func content(elapsed: TimeInterval) -> some View {
+        let parts = DurationFormatter.parts(elapsed)
+        let next = Milestone.next(after: elapsed)
+        let progress = Milestone.progress(toward: elapsed)
+        return VStack(spacing: 0) {
+            DawnOrb(progress: progress, size: 124)
+                .padding(.bottom, -8)
+            Text("Free from \(habit.name)")
+                .microLabel(Palette.amber)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+            dayCount(parts.days)
+            clock(parts)
+                .padding(.top, 8)
+            milestoneProgress(elapsed: elapsed, next: next, progress: progress)
+                .padding(.top, 22)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Free from \(habit.name) for \(parts.days) days, \(parts.hours) hours and \(parts.minutes) minutes"))
+        .accessibilityValue(milestoneDescription(elapsed: elapsed, next: next))
+    }
+
+    private var tickAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.3)
+    }
+
+    // MARK: Day count
+
+    private func dayCount(_ days: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(days, format: .number)
+                .font(.display(92, weight: .heavy))
+                .foregroundStyle(Self.numeralGradient)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText())
+                .shadow(color: Palette.amber.opacity(0.28), radius: 18)
+            Text(days == 1 ? "day" : "days")
+                .font(.system(.title2, design: .rounded).weight(.semibold))
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(1)
+        }
+        // The line box of a 92 pt font is much taller than its digits; tighten it so the hero stays compact.
+        .padding(.vertical, -6)
+        .animation(tickAnimation, value: days)
+    }
+
+    private static let numeralGradient = LinearGradient(
+        colors: [Color.white, Palette.sun],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    // MARK: Clock
+
+    private func clock(_ parts: DurationFormatter.Parts) -> some View {
+        HStack(spacing: 8) {
+            HeroTimePill(value: parts.hours, unit: "hrs")
+            HeroTimePill(value: parts.minutes, unit: "min")
+            HeroTimePill(value: parts.seconds, unit: "sec")
+        }
+        .animation(tickAnimation, value: parts)
+    }
+
+    // MARK: Next milestone
+
     @ViewBuilder
-    private func milestoneProgress(_ elapsed: TimeInterval) -> some View {
-        if let next = Milestone.next(after: elapsed) {
-            VStack(spacing: 8) {
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.25))
-                        Capsule()
-                            .fill(Color.white)
-                            .frame(width: proxy.size.width * Milestone.progress(toward: elapsed))
-                    }
+    private func milestoneProgress(elapsed: TimeInterval, next: Milestone?, progress: Double) -> some View {
+        if let next {
+            VStack(spacing: 10) {
+                HabitDetailProgressBar(fraction: progress)
+                HStack(spacing: 6) {
+                    Image(systemName: next.symbol)
+                        .foregroundStyle(Palette.amber)
+                    Text("\(DurationFormatter.compact(next.seconds - elapsed)) until \(next.title)")
+                        .foregroundStyle(Palette.textSecondary)
+                        .monospacedDigit()
                 }
-                .frame(height: 8)
-                Text("\(DurationFormatter.compact(next.seconds - elapsed)) until \(next.title)")
-                    .font(.footnote.weight(.semibold))
-                    .opacity(0.9)
+                .font(.footnote.weight(.semibold))
             }
-            .padding(.top, 6)
+            .padding(.horizontal, 12)
         } else {
             Label("Every milestone unlocked. Legend.", systemImage: "crown.fill")
                 .font(.footnote.weight(.semibold))
+                .foregroundStyle(Palette.sun)
         }
+    }
+
+    private func milestoneDescription(elapsed: TimeInterval, next: Milestone?) -> Text {
+        guard let next else { return Text("Every milestone unlocked. Legend.") }
+        return Text("\(DurationFormatter.compact(next.seconds - elapsed)) until \(next.title)")
     }
 }
 
-private struct TimeUnitView: View {
+/// Hours, minutes or seconds of the live streak in a small glass pill.
+private struct HeroTimePill: View {
     let value: Int
-    let label: String
+    let unit: LocalizedStringKey
 
     var body: some View {
-        VStack(spacing: 2) {
-            Text(String(format: "%02d", value))
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(verbatim: String(format: "%02d", value))
+                .font(.system(.title3, design: .rounded).weight(.bold))
+                .foregroundStyle(Palette.textPrimary)
                 .monospacedDigit()
                 .contentTransition(.numericText())
-            Text(label)
-                .font(.caption2.weight(.semibold))
-                .opacity(0.8)
+            Text(unit)
+                .microLabel(Palette.textSecondary)
         }
-        .frame(width: 72)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Palette.surface.opacity(0.62), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
     }
+}
+
+#Preview {
+    ScrollView {
+        HabitHeroView(habit: PreviewData.sampleHabit)
+            .padding()
+    }
+    .dawnScreenBackground(glow: 0.4)
+    .previewEnvironment()
 }

@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// "What's happening in your body and mind": the habit's recovery steps measured against its current streak.
+/// "What's happening in your body and mind": the habit's recovery steps measured against its current streak,
+/// drawn as a vertical timeline that lights up in dawn colors as steps are reached.
 /// Embedded in the habit detail scroll view.
 struct RecoveryTimelineView: View {
     let habit: Habit
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
     /// Steps shown before the "Show all" toggle.
@@ -15,7 +17,7 @@ struct RecoveryTimelineView: View {
     }
 
     var body: some View {
-        Card(title: "Recovery timeline", systemImage: "heart.text.square.fill", tint: habit.theme.accent) {
+        Card(title: "Recovery timeline", systemImage: "heart.text.square.fill", tint: Palette.rose) {
             TimelineView(.periodic(from: .now, by: 30)) { timeline in
                 content(steps: steps, elapsed: habit.stats(at: timeline.date).currentStreak)
             }
@@ -24,47 +26,71 @@ struct RecoveryTimelineView: View {
 
     private func content(steps: [RecoveryStep], elapsed: TimeInterval) -> some View {
         let progress = RecoveryTimeline.progress(elapsed: elapsed, steps: steps)
-        let theme = habit.theme
         return VStack(alignment: .leading, spacing: 16) {
             if let next = progress.next {
                 NextRecoveryStepView(
                     step: next,
                     remaining: next.offset - elapsed,
-                    fraction: progress.fractionToNext,
-                    theme: theme
+                    fraction: progress.fractionToNext
                 )
             } else {
-                RecoveryCompleteView(theme: theme)
+                RecoveryCompleteView()
             }
             Text("\(progress.reached) of \(steps.count) steps reached")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            stepList(steps: steps, elapsed: elapsed, next: progress.next, theme: theme)
+                .foregroundStyle(Palette.textSecondary)
+            stepList(steps: steps, elapsed: elapsed, next: progress.next, fractionToNext: progress.fractionToNext)
             footer
         }
     }
 
-    private func stepList(steps: [RecoveryStep], elapsed: TimeInterval, next: RecoveryStep?, theme: HabitTheme) -> some View {
+    private func stepList(
+        steps: [RecoveryStep],
+        elapsed: TimeInterval,
+        next: RecoveryStep?,
+        fractionToNext: Double
+    ) -> some View {
         let visible = isExpanded ? steps : Array(steps.prefix(Self.collapsedCount))
-        return VStack(spacing: 0) {
-            ForEach(visible) { step in
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(visible.enumerated()), id: \.element.id) { index, step in
                 RecoveryStepRow(
                     step: step,
-                    isReached: step.offset <= elapsed,
-                    isNext: step == next,
-                    theme: theme
+                    status: status(of: step, elapsed: elapsed, next: next),
+                    lineFill: lineFill(below: index, in: visible, elapsed: elapsed, next: next, fractionToNext: fractionToNext)
                 )
             }
             if steps.count > Self.collapsedCount {
-                expandButton(total: steps.count, theme: theme)
+                expandButton(total: steps.count)
             }
         }
     }
 
-    private func expandButton(total: Int, theme: HabitTheme) -> some View {
+    private func status(of step: RecoveryStep, elapsed: TimeInterval, next: RecoveryStep?) -> HabitDetailNode.Status {
+        if step.offset <= elapsed { return .reached }
+        if step == next { return .next }
+        return .upcoming
+    }
+
+    /// How much of the line from a step down to the following one is lit: all of it once the following step is
+    /// reached, the progress toward it while it's up next, none before that. Nil for the last visible step.
+    private func lineFill(
+        below index: Int,
+        in visible: [RecoveryStep],
+        elapsed: TimeInterval,
+        next: RecoveryStep?,
+        fractionToNext: Double
+    ) -> Double? {
+        guard index + 1 < visible.count else { return nil }
+        let following = visible[index + 1]
+        if following.offset <= elapsed { return 1 }
+        if following == next { return fractionToNext }
+        return 0
+    }
+
+    private func expandButton(total: Int) -> some View {
         Button {
             Haptics.selection()
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                 isExpanded.toggle()
             }
         } label: {
@@ -79,12 +105,14 @@ struct RecoveryTimelineView: View {
                     .accessibilityHidden(true)
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(theme.accent)
+            .foregroundStyle(Palette.amber)
             .frame(maxWidth: .infinity)
-            .padding(.top, 10)
-            .contentShape(Rectangle())
+            .padding(.vertical, 10)
+            .background(Palette.amber.opacity(0.1), in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .padding(.top, 12)
     }
 
     private var footer: some View {
@@ -95,8 +123,9 @@ struct RecoveryTimelineView: View {
             Text("Everyone is different. This is general information, not medical advice.")
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Palette.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -105,7 +134,6 @@ private struct NextRecoveryStepView: View {
     let step: RecoveryStep
     let remaining: TimeInterval
     let fraction: Double
-    let theme: HabitTheme
 
     @ScaledMetric(relativeTo: .title3) private var iconSize: CGFloat = 44
 
@@ -114,24 +142,24 @@ private struct NextRecoveryStepView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: step.symbol)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Palette.inkText)
                     .frame(width: iconSize, height: iconSize)
-                    .background(theme.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Brand.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: Palette.amber.opacity(0.45), radius: 10, y: 2)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("UP NEXT")
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.5)
-                        .foregroundStyle(theme.accent)
+                    Text("Up next")
+                        .microLabel(Palette.amber)
                     Text(step.title)
-                        .font(.headline)
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.textPrimary)
                     Text(step.detail)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            RecoveryProgressBar(fraction: fraction, theme: theme)
+            HabitDetailProgressBar(fraction: fraction, height: 8)
             HStack {
                 Text("\(DurationFormatter.compact(remaining)) to go")
                     .monospacedDigit()
@@ -141,134 +169,125 @@ private struct NextRecoveryStepView: View {
                     .monospacedDigit()
             }
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Palette.textSecondary)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.amber.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Palette.amber.opacity(0.28), lineWidth: 1)
+        )
         .accessibilityElement(children: .combine)
     }
 }
 
 /// Shown once every step on the timeline has been reached.
 private struct RecoveryCompleteView: View {
-    let theme: HabitTheme
-
     var body: some View {
         Label {
             Text("You've reached every step on this timeline. Your progress keeps building from here.")
+                .foregroundStyle(Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "sparkles")
-                .foregroundStyle(theme.accent)
+                .foregroundStyle(Palette.sun)
         }
         .font(.subheadline.weight(.semibold))
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.amber.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Palette.amber.opacity(0.28), lineWidth: 1)
+        )
     }
 }
 
-private struct RecoveryProgressBar: View {
-    let fraction: Double
-    let theme: HabitTheme
-
-    private var clampedFraction: CGFloat {
-        guard !fraction.isNaN else { return 0 }
-        return CGFloat(min(max(fraction, 0), 1))
-    }
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.primary.opacity(0.08))
-                Capsule()
-                    .fill(theme.gradient)
-                    .frame(width: proxy.size.width * clampedFraction)
-            }
-        }
-        .frame(height: 8)
-        .animation(.easeInOut(duration: 0.6), value: fraction)
-        .accessibilityHidden(true)
-    }
-}
-
+/// One step on the timeline: a node on the rail, the line down to the next step, and the step's text.
 private struct RecoveryStepRow: View {
     let step: RecoveryStep
-    let isReached: Bool
-    let isNext: Bool
-    let theme: HabitTheme
+    let status: HabitDetailNode.Status
+    /// How much of the line below this step is lit (0...1), or nil when no line follows it.
+    let lineFill: Double?
 
-    @ScaledMetric(relativeTo: .subheadline) private var badgeSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .subheadline) private var nodeSize: CGFloat = 34
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            badge
-            VStack(alignment: .leading, spacing: 2) {
-                Text(RecoveryTimeline.offsetLabel(step.offset))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(isReached || isNext ? theme.accent : Color.secondary)
-                Text(step.title)
-                    .font(.subheadline.weight(.semibold))
-                Text(step.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            rail
+            details
+                .padding(.bottom, lineFill == nil ? 4 : 20)
             Spacer(minLength: 0)
-            status
+            if status == .next {
+                Chip(text: Text("Next"), tint: Palette.amber)
+                    .accessibilityHidden(true)
+            }
         }
-        .padding(.vertical, 8)
-        .opacity(isReached || isNext ? 1 : 0.6)
+        // Lets the rail's line stretch to the full height of the step's text.
+        .fixedSize(horizontal: false, vertical: true)
+        .opacity(status == .upcoming ? 0.8 : 1)
         .accessibilityElement(children: .combine)
         .accessibilityValue(statusDescription)
     }
 
-    private var badge: some View {
-        ZStack {
-            Circle()
-                .fill(badgeFill)
-            Image(systemName: step.symbol)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(symbolColor)
+    private var rail: some View {
+        VStack(spacing: 4) {
+            HabitDetailNode(systemImage: step.symbol, status: status, size: nodeSize)
+            if let lineFill {
+                RecoveryRailSegment(fill: lineFill)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .padding(.bottom, 4)
+            }
         }
-        .frame(width: badgeSize, height: badgeSize)
-        .accessibilityHidden(true)
+        .frame(width: nodeSize)
     }
 
-    private var badgeFill: AnyShapeStyle {
-        if isReached { return AnyShapeStyle(theme.gradient) }
-        if isNext { return AnyShapeStyle(theme.accent.opacity(0.18)) }
-        return AnyShapeStyle(Color.primary.opacity(0.08))
-    }
-
-    private var symbolColor: Color {
-        if isReached { return .white }
-        if isNext { return theme.accent }
-        return .secondary
-    }
-
-    @ViewBuilder
-    private var status: some View {
-        if isReached {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(theme.accent)
-                .accessibilityHidden(true)
-        } else if isNext {
-            Text("NEXT")
-                .font(.caption2.weight(.heavy))
-                .foregroundStyle(theme.accent)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(theme.accent.opacity(0.15), in: Capsule())
-                .accessibilityHidden(true)
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(RecoveryTimeline.offsetLabel(step.offset))
+                .microLabel(status == .upcoming ? Palette.textTertiary : Palette.amber)
+            Text(step.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(status == .upcoming ? Palette.textSecondary : Palette.textPrimary)
+            Text(step.detail)
+                .font(.caption)
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.top, 2)
     }
 
     private var statusDescription: Text {
-        if isReached { return Text("Reached") }
-        if isNext { return Text("Up next") }
-        return Text("Upcoming")
+        switch status {
+        case .reached: Text("Reached")
+        case .next: Text("Up next")
+        case .upcoming: Text("Upcoming")
+        }
+    }
+}
+
+/// A piece of the timeline's rail: lit with the dawn gradient from the top down to `fill`, dim below it.
+private struct RecoveryRailSegment: View {
+    let fill: Double
+
+    var body: some View {
+        let lit = fill.isFinite ? min(max(fill, 0), 1) : 0
+        Capsule()
+            .fill(
+                LinearGradient(
+                    stops: [
+                        .init(color: Palette.amber, location: 0),
+                        .init(color: Palette.ember, location: lit),
+                        .init(color: Color.white.opacity(0.12), location: lit),
+                        .init(color: Color.white.opacity(0.12), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .shadow(color: lit > 0 ? Palette.amber.opacity(0.4) : .clear, radius: 4)
     }
 }
 
@@ -277,6 +296,6 @@ private struct RecoveryStepRow: View {
         RecoveryTimelineView(habit: PreviewData.sampleHabit)
             .padding()
     }
-    .background(Color(.systemGroupedBackground))
+    .dawnScreenBackground(glow: 0.4)
     .previewEnvironment()
 }
