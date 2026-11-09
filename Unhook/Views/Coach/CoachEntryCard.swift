@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A compact card for the Today screen that opens the private craving coach in a sheet.
+/// A compact glass card for the Today and habit screens that opens the private craving coach in a sheet.
+/// The root view is a single Button, so an accessibility identifier set by the caller lands on it.
 struct CoachEntryCard: View {
     /// The habit to talk about, or nil to let the coach pick the habit with the longest streak.
     let habit: Habit?
@@ -19,27 +20,30 @@ struct CoachEntryCard: View {
             Haptics.tap()
             isShowingCoach = true
         } label: {
-            Card {
-                HStack(spacing: 14) {
-                    icon
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Talk to your coach")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
+            HStack(spacing: 14) {
+                IconBadge(systemImage: "sparkles", tint: Palette.violet, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Talk to your coach")
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.textPrimary)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.textTertiary)
+                    .accessibilityHidden(true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .glassSurface(cornerRadius: 24)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableCardStyle())
         .accessibilityElement(children: .combine)
         .accessibilityHint("Opens a private chat with your coach")
         .onAppear {
@@ -49,21 +53,12 @@ struct CoachEntryCard: View {
             CoachView(habit: habit)
         }
     }
-
-    private var icon: some View {
-        Image(systemName: "sparkles")
-            .font(.title2)
-            .foregroundStyle(.white)
-            .frame(width: 48, height: 48)
-            .background(Brand.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .accessibilityHidden(true)
-    }
 }
 
 #Preview {
     CoachEntryCard(habit: nil)
         .padding()
         .frame(maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        .background { DawnBackground() }
         .previewEnvironment()
 }

@@ -9,6 +9,7 @@ struct CoachView: View {
     let habit: Habit?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Habit.sortIndex) private var habits: [Habit]
 
     @State private var coach: (any CravingCoach)?
@@ -39,15 +40,24 @@ struct CoachView: View {
         !isAwaitingReply && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var bannerTransition: AnyTransition {
+        reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                CoachPrivacyStrip()
+                CoachHeader(usesOnDeviceAI: usesOnDeviceAI) {
+                    dismiss()
+                }
+                Rectangle()
+                    .fill(Palette.hairline)
+                    .frame(height: 1)
                 if showsCrisisResources {
                     CoachCrisisBanner()
                         .padding(.horizontal)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .padding(.top, 10)
+                        .transition(bannerTransition)
                 }
                 messageList
                 if showsQuickReplies {
@@ -56,17 +66,11 @@ struct CoachView: View {
                 }
                 inputBar
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Coach")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    CoachTitle(usesOnDeviceAI: usesOnDeviceAI)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+            .background {
+                DawnBackground(glow: 0.2)
             }
+            .navigationTitle("Coach")
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: startConversation)
         }
     }
@@ -76,7 +80,7 @@ struct CoachView: View {
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(messages) { message in
                         CoachMessageBubble(message: message)
                             .id(message.id)
@@ -90,8 +94,9 @@ struct CoachView: View {
                         .id(Self.bottomID)
                 }
                 .padding(.horizontal)
-                .padding(.vertical, 12)
+                .padding(.vertical, 14)
             }
+            .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: messages.count) {
                 scrollToBottom(proxy)
@@ -128,32 +133,42 @@ struct CoachView: View {
         .scrollIndicators(.hidden)
     }
 
+    /// A glass capsule with the text field and an amber send button.
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
             TextField("Message your coach", text: $draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($isInputFocused)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    Color(.secondarySystemGroupedBackground),
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
-
-            Button {
-                send(draft)
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(Brand.gradient)
-            }
-            .disabled(!canSend)
-            .opacity(canSend ? 1 : 0.4)
-            .accessibilityLabel("Send")
+                .font(.body)
+                .foregroundStyle(Palette.textPrimary)
+                .tint(Palette.amber)
+                .padding(.vertical, 8)
+            sendButton
         }
+        .padding(.leading, 18)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .glassSurface(cornerRadius: 24)
         .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
+    }
+
+    private var sendButton: some View {
+        Button {
+            send(draft)
+        } label: {
+            Image(systemName: "arrow.up")
+                .font(.body.weight(.bold))
+                .foregroundStyle(Palette.inkText)
+                .frame(width: 38, height: 38)
+                .background(Palette.amber, in: Circle())
+                .shadow(color: Palette.amber.opacity(canSend ? 0.45 : 0), radius: 8)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSend)
+        .opacity(canSend ? 1 : 0.4)
+        .accessibilityLabel("Send")
     }
 
     // MARK: Actions
