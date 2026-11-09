@@ -20,6 +20,7 @@ struct UnhookApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .preferredColorScheme(.dark)
                 .environment(router)
                 .environment(store)
                 .task { store.start() }

@@ -4,7 +4,7 @@ struct ProgressRing: View {
     var progress: Double
     var colors: [Color]
     var lineWidth: CGFloat = 8
-    var trackColor: Color = Color.primary.opacity(0.1)
+    var trackColor: Color = Color.white.opacity(0.1)
 
     var body: some View {
         ZStack {

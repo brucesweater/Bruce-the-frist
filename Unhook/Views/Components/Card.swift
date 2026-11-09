@@ -1,57 +1,59 @@
 import SwiftUI
 
-/// Rounded content container used across the app.
+/// The app's standard container: a frosted glass card with an optional tinted header.
 struct Card<Content: View>: View {
     var title: LocalizedStringKey?
     var systemImage: String?
-    var tint: Color = .accentColor
+    var tint: Color = Palette.amber
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let title {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     if let systemImage {
-                        Image(systemName: systemImage)
-                            .foregroundStyle(tint)
+                        IconBadge(systemImage: systemImage, tint: tint, size: 28)
                     }
                     Text(title)
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.textPrimary)
                 }
-                .font(.headline)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
             }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .glassSurface(cornerRadius: 24)
     }
 }
 
+/// A compact stat: a tinted symbol, a big rounded number and a small label.
 struct StatTile: View {
     let title: LocalizedStringKey
     let value: String
     let systemImage: String
-    var tint: Color = .accentColor
+    var tint: Color = Palette.amber
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
+        VStack(alignment: .leading, spacing: 10) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 30)
             Text(value)
-                .font(.title3.bold())
+                .font(.display(24))
+                .foregroundStyle(Palette.textPrimary)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText())
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .microLabel()
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glassSurface(cornerRadius: 20)
         .accessibilityElement(children: .combine)
     }
 }
