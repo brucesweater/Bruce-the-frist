@@ -21,17 +21,26 @@ struct LockView: View {
         ZStack {
             DawnBackground(glow: 0.14)
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 24)
-                AppLockEmblem()
-                header
-                    .padding(.top, 18)
-                Spacer(minLength: 24)
-                footer
+            // Scrolls only when large text makes the content taller than the screen,
+            // so Unlock and the helpline link can always be reached.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 24)
+                        AppLockEmblem()
+                        header
+                            .padding(.top, 18)
+                        Spacer(minLength: 24)
+                        footer
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: 480)
+                    // After the padding, so normal sizes fill the screen exactly and don't scroll.
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
-            .frame(maxWidth: 480)
         }
         .environment(\.colorScheme, .dark)
         .animation(.easeInOut(duration: 0.2), value: errorMessage)

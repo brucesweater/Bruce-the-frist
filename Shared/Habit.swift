@@ -122,13 +122,16 @@ extension Habit {
     /// never happened, and its clean time stops being counted in both the banked total and the streak.
     func undoLatestRelapse(in context: ModelContext) {
         guard let relapse = latestRelapse else { return }
+        // The milestone the streak had reached when the slip ended it (read before the slip is deleted).
+        let reachedAtSlip = Milestone.latest(reachedBy: relapse.streakSeconds)?.seconds ?? 0
         bankedSeconds = max(0, bankedSeconds - relapse.streakSeconds)
         streakStart = relapse.date.addingTimeInterval(-relapse.streakSeconds)
         relapses.removeAll { $0 === relapse }
         context.delete(relapse)
         bestStreakSeconds = relapses.map(\.streakSeconds).max() ?? 0
-        // Milestones of the restored streak were celebrated before the slip; don't repeat them.
-        celebratedMilestoneSeconds = Milestone.latest(reachedBy: stats().currentStreak)?.seconds ?? 0
+        // Milestones reached before the slip were celebrated then, and ones shown while it stood aren't repeated.
+        // A milestone the restored streak passed in between was never celebrated, so it stays pending.
+        celebratedMilestoneSeconds = max(reachedAtSlip, celebratedMilestoneSeconds)
     }
 }
 

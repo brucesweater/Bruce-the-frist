@@ -9,7 +9,17 @@ enum EngagementCalendar {
     static func dayIndex(for date: Date, calendar: Calendar = .current) -> Int {
         var gregorian = Calendar(identifier: .gregorian)
         gregorian.timeZone = calendar.timeZone
-        let parts = gregorian.dateComponents([.year, .month, .day], from: date)
+        return dayIndex(of: gregorian.dateComponents([.year, .month, .day], from: date))
+    }
+
+    /// The day index of a `StoredDay` (a pledge, a mission check-off, the start of a 30-Day Reset). It is the same
+    /// in every time zone, and equals `dayIndex(for:calendar:)` of the moment it was saved, in the zone it was saved in.
+    static func dayIndex(ofStored day: Date) -> Int {
+        dayIndex(of: StoredDay.components(of: day))
+    }
+
+    /// Whole days from 1 January 2024 to a Gregorian date.
+    private static func dayIndex(of parts: DateComponents) -> Int {
         guard let year = parts.year, let month = parts.month, let day = parts.day else { return 0 }
         return daysFromCivil(year: year, month: month, day: day) - daysFromCivil(year: 2024, month: 1, day: 1)
     }

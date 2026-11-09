@@ -141,9 +141,14 @@ struct HabitFormView: View {
                 tint: Palette.sky
             )
         } footer: {
-            HabitFormFooter(text: Text(editing == nil
-                ? "Already clean for a while? Pick the date and Unhook counts it."
-                : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history."))
+            VStack(alignment: .leading, spacing: 10) {
+                HabitFormFooter(text: Text(editing == nil
+                    ? "Already clean for a while? Pick the date and Unhook counts it."
+                    : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history."))
+                if editing == nil && draft.presetID == "alcohol" {
+                    WithdrawalCaution()
+                }
+            }
         }
         .habitFormRowStyle()
     }
@@ -267,7 +272,7 @@ struct HabitFormView: View {
         habit.name = draft.trimmedName
         habit.emoji = draft.emoji.isEmpty ? "✨" : draft.emoji
         habit.theme = draft.theme
-        habit.dailyCost = HabitDraft.parse(draft.costText)
+        habit.dailyCost = HabitDraft.parse(draft.costText, upTo: HabitDraft.maxMoney)
         habit.dailyMinutes = HabitDraft.parse(draft.minutesText, upTo: HabitDraft.maxDailyMinutes)
         habit.unitsPerDay = HabitDraft.parse(draft.unitsText)
         habit.unitName = draft.unitName.trimmingCharacters(in: .whitespacesAndNewlines)

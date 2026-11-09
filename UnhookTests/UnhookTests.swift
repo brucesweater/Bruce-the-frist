@@ -380,4 +380,34 @@ struct UndoSlipTests {
         #expect(habit.streakStart == start)
         #expect(habit.bankedSeconds == 0)
     }
+
+    @Test func milestonesPassedWhileTheSlipStoodAreStillCelebrated() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let habit = Habit(name: "Smoking", emoji: "🚬", theme: .fire, streakStart: start)
+        context.insert(habit)
+        habit.celebratedMilestoneSeconds = 3 * day
+
+        // Logged by mistake on day 6 and taken back on day 8, after the restored streak passed one week.
+        habit.recordRelapse(at: start.addingTimeInterval(6 * day), in: context)
+        habit.undoLatestRelapse(in: context)
+
+        #expect(habit.celebratedMilestoneSeconds == 3 * day)
+        #expect(CelebrationCenter.pendingMilestone(elapsed: 8 * day, celebrated: habit.celebratedMilestoneSeconds)?.title == "1 Week")
+    }
+
+    @Test func undoDoesNotRepeatACelebrationShownWhileTheSlipStood() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let habit = Habit(name: "Vaping", emoji: "💨", theme: .grape, streakStart: start)
+        context.insert(habit)
+
+        // Logged on day 1. The new streak's "1 Week" was shown on day 8, then the slip was taken back on day 9.
+        habit.recordRelapse(at: start.addingTimeInterval(day), in: context)
+        habit.celebratedMilestoneSeconds = 7 * day
+        habit.undoLatestRelapse(in: context)
+
+        #expect(habit.celebratedMilestoneSeconds == 7 * day)
+        #expect(CelebrationCenter.pendingMilestone(elapsed: 9 * day, celebrated: habit.celebratedMilestoneSeconds) == nil)
+    }
 }

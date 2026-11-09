@@ -422,24 +422,38 @@ def cmd_submit(api):
             "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}}}})["data"]
     items = api.request("GET", f"/v1/reviewSubmissions/{submission['id']}/items").get("data", [])
     if not items:
+        # The app version only. In-app events go in their own submission ([asc submit-event]), so a rejected
+        # event can never hold up a release.
         api.request("POST", "/v1/reviewSubmissionItems", body={"data": {
             "type": "reviewSubmissionItems", "relationships": {
                 "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
                 "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}}}}})
-        events = api.request("GET", f"/v1/apps/{app['id']}/appEvents", params={"limit": 50}).get("data", [])
-        for event in events:
-            if event["attributes"].get("eventState") in ("DRAFT", "READY_FOR_REVIEW"):
-                try:
-                    api.request("POST", "/v1/reviewSubmissionItems", body={"data": {
-                        "type": "reviewSubmissionItems", "relationships": {
-                            "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
-                            "appEvent": {"data": {"type": "appEvents", "id": event["id"]}}}}})
-                    print("Added the in-app event", event["attributes"].get("referenceName"))
-                except Exception as error:  # noqa: BLE001
-                    print("Couldn't add the in-app event:", str(error)[:400])
     api.request("PATCH", f"/v1/reviewSubmissions/{submission['id']}", body={"data": {
         "type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True}}})
     print("Submitted for App Review.")
+
+
+def cmd_submit_event(api):
+    """Submits draft in-app events on their own, once a version of the app is live. Apple reviews an event
+    together with the latest version, so run this after the release is approved."""
+    app = require_app(api)
+    events = [e for e in api.request("GET", f"/v1/apps/{app['id']}/appEvents", params={"limit": 50}).get("data", [])
+              if e["attributes"].get("eventState") in ("DRAFT", "READY_FOR_REVIEW")]
+    if not events:
+        print("No draft in-app events to submit (run [asc event] first).")
+        return
+    submission = api.request("POST", "/v1/reviewSubmissions", body={"data": {
+        "type": "reviewSubmissions", "attributes": {"platform": "IOS"},
+        "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}}}})["data"]
+    for event in events:
+        api.request("POST", "/v1/reviewSubmissionItems", body={"data": {
+            "type": "reviewSubmissionItems", "relationships": {
+                "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
+                "appEvent": {"data": {"type": "appEvents", "id": event["id"]}}}}})
+        print("Added the in-app event", event["attributes"].get("referenceName"))
+    api.request("PATCH", f"/v1/reviewSubmissions/{submission['id']}", body={"data": {
+        "type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True}}})
+    print("Submitted the in-app event(s) for review.")
 
 
 def cmd_status(api):
@@ -466,5 +480,6 @@ COMMANDS = {
     "event": cmd_event,
     "attach-build": cmd_attach_build,
     "submit": cmd_submit,
+    "submit-event": cmd_submit_event,
     "status": cmd_status,
 }

@@ -56,14 +56,14 @@ extension Urge {
 /// The daily "I'll stay free today" commitment, with a mood check-in.
 @Model
 final class Pledge {
-    /// Start of the day the pledge belongs to.
+    /// The day the pledge belongs to, as a `StoredDay`.
     var day: Date = Date.now
     /// 1 (rough) … 5 (great).
     var mood: Int = 3
     var createdAt: Date = Date.now
 
     init(day: Date, mood: Int, calendar: Calendar = .current) {
-        self.day = calendar.startOfDay(for: day)
+        self.day = StoredDay.make(for: day, calendar: calendar)
         self.mood = min(max(mood, 1), 5)
         self.createdAt = .now
     }

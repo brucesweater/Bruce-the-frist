@@ -4,7 +4,8 @@ import Foundation
 /// Pure value type so it is easy to test.
 struct OnboardingProjection: Equatable {
     static let daysPerYear: Double = 365
-    /// Matches `HabitDraft.parse`'s default cap, so yearly totals always stay finite and displayable.
+    /// Caps units per day, matching `HabitDraft.parse`'s default. Money uses `HabitDraft.maxMoney`. Both keep
+    /// yearly totals finite and displayable.
     static let maxDailyValue: Double = 1_000_000
 
     let dailyCost: Double
@@ -13,7 +14,7 @@ struct OnboardingProjection: Equatable {
 
     /// Negative, NaN and infinite inputs count as zero. Minutes are capped at a full day.
     init(dailyCost: Double, dailyMinutes: Double, unitsPerDay: Double) {
-        self.dailyCost = Self.sanitized(dailyCost, upTo: Self.maxDailyValue)
+        self.dailyCost = Self.sanitized(dailyCost, upTo: HabitDraft.maxMoney)
         self.dailyMinutes = Self.sanitized(dailyMinutes, upTo: HabitDraft.maxDailyMinutes)
         self.unitsPerDay = Self.sanitized(unitsPerDay, upTo: Self.maxDailyValue)
     }

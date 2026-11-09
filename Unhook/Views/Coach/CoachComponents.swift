@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The coach sheet's header: a glowing avatar, the coach's name, the privacy promise and a Done button.
 struct CoachHeader: View {
@@ -27,6 +28,10 @@ struct CoachHeader: View {
                 doneButton
             }
             CoachPrivacyChip()
+            Text("Not a doctor. For withdrawal or medication questions, ask a doctor or pharmacist. In an emergency, call your local emergency number.")
+                .font(.caption)
+                .foregroundStyle(Palette.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
@@ -130,7 +135,21 @@ struct CoachCrisisBanner: View {
 struct CoachMessageBubble: View {
     let message: CoachMessage
 
+    @Environment(\.openURL) private var openURL
+
     private var isUser: Bool { message.role == .user }
+
+    /// An email to the developer with the coach's reply filled in, so anyone can report a reply that seems harmful
+    /// or wrong. Nothing is sent unless the person sends the email themselves.
+    private var reportURL: URL? {
+        guard !isUser else { return nil }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        guard let subject = "Unhook coach report".addingPercentEncoding(withAllowedCharacters: allowed),
+              let body = "Coach reply:\n\(message.text)\n\nWhat was wrong (optional):\n"
+                .addingPercentEncoding(withAllowedCharacters: allowed)
+        else { return nil }
+        return URL(string: "mailto:\(FounderLinks.emailAddress)?subject=\(subject)&body=\(body)")
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -147,6 +166,11 @@ struct CoachMessageBubble: View {
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
+        .accessibilityActions {
+            if let url = reportURL {
+                Button("Report this reply") { openURL(url) }
+            }
+        }
     }
 
     /// Rounded everywhere except the corner nearest the speaker.
@@ -168,7 +192,16 @@ struct CoachMessageBubble: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background { bubbleBackground }
-            .textSelection(.enabled)
+            .contextMenu {
+                Button("Copy", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = message.text
+                }
+                if let url = reportURL {
+                    Button("Report this reply", systemImage: "flag") {
+                        openURL(url)
+                    }
+                }
+            }
     }
 
     @ViewBuilder private var bubbleBackground: some View {

@@ -30,7 +30,7 @@ def main(raw_dir, out, quick=False):
     canvas = Image.fromarray(cv2.cvtColor(sky, cv2.COLOR_BGR2RGB)).convert("RGBA")
 
     # Bruce, from the top of his hair to below the phone, standing a little right of center.
-    person, mask = bruce_cutout(load_raw(raw_dir, "01-today"))
+    person, mask = bruce_cutout(load_raw(raw_dir, "30-onboarding-welcome"))
     top, bottom = 520, 2868
     person = person.crop((0, top, person.width, bottom))
     mask = mask.crop((0, top, mask.width, bottom))

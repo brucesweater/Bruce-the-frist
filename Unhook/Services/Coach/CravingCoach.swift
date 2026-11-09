@@ -14,10 +14,15 @@ protocol CravingCoach {
 
     /// The coach's answer to `message`. `history` is the conversation *before* `message`, oldest first.
     func reply(to message: String, history: [CoachMessage], context: CoachContext) async -> String
+
+    /// True when the last reply stood in for one that Apple's safety guardrails blocked. The default is false.
+    var lastReplyWasBlocked: Bool { get }
 }
 
 extension CravingCoach {
     var usesOnDeviceModel: Bool { false }
+
+    var lastReplyWasBlocked: Bool { false }
 
     func prepare(context: CoachContext, history: [CoachMessage]) {}
 }

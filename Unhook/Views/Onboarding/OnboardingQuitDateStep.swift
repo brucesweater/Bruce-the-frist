@@ -74,6 +74,9 @@ struct OnboardingQuitDateStep: View {
                 earlierPicker
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            if answers.draft.presetID == "alcohol" {
+                WithdrawalCaution()
+            }
         }
     }
 
@@ -120,4 +123,20 @@ struct OnboardingQuitDateStep: View {
     }
     .environment(\.colorScheme, .dark)
     .previewEnvironment()
+}
+
+/// Stopping heavy daily drinking all at once can be dangerous, so say so before the streak starts.
+struct WithdrawalCaution: View {
+    var body: some View {
+        Label {
+            Text("Drinking heavily every day? Stopping suddenly can cause dangerous withdrawal. Talk to a doctor before you stop.")
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "stethoscope")
+                .foregroundStyle(Palette.amber)
+        }
+        .font(.footnote)
+        .foregroundStyle(Palette.textSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 }

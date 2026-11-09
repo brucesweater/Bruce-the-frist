@@ -53,8 +53,13 @@ struct HabitDraft {
     /// Minutes in a day: the most time a habit can take per day.
     static let maxDailyMinutes: Double = 1_440
 
+    /// The cap for money: a habit's daily cost and a goal's price. `parse`'s default of 1,000,000 is only about
+    /// $40 in dong or $64 in rupiah, so money gets far more room. Still finite, so totals stay displayable.
+    static let maxMoney: Double = 1_000_000_000_000
+
     /// Parses user input like "12", "12.5" or "12,5" into 0...upperBound. Anything unreadable, including
     /// "inf", counts as zero; the cap keeps a run of digits from producing totals too big to display.
+    /// The default cap suits counts like units per day; money uses `maxMoney`.
     static func parse(_ text: String, upTo upperBound: Double = 1_000_000) -> Double {
         let cleaned = text
             .trimmingCharacters(in: .whitespaces)

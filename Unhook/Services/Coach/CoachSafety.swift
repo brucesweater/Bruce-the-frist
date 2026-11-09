@@ -20,6 +20,9 @@ enum CoachSafety {
         "dont want to wake up", "rather be dead", "hang myself", "hanging myself", "shoot myself",
         "self harm", "selfharm", "hurt myself", "hurting myself", "harm myself", "harming myself",
         "cut myself", "cutting myself", "overdose", "overdosed", "overdosing", "unalive",
+        "end things", "ending things", "off myself", "slit my wrists", "stop existing", "better off without me",
+        "cant go on", "done with life", "point of living", "all my pills", "bottle of pills", "cutting again",
+        "jump off a bridge", "jump off a building", "jump off the roof", "never wake up again",
         "im in danger", "i am in danger", "in immediate danger",
     ]
 
@@ -78,6 +81,29 @@ enum CoachSafety {
     }
 
     static var crisisReply: String { crisisResponse.text }
+
+    /// Stands in for an on-device model reply that Apple's safety guardrails blocked. Those mostly catch messages
+    /// about self-harm, so the screen also shows the helpline banner.
+    static var blockedReply: String {
+        String(localized: "That's something I can't talk through here, but you don't have to carry it alone. If you're struggling or thinking about hurting yourself, please reach out to a helpline below or call your local emergency number. If it's a craving, tap SOS and breathe with me.")
+    }
+
+    /// Phrases, already normalized, that describe a possible medical emergency (for example severe withdrawal).
+    /// They get a fixed reply that points to emergency services instead of craving tips.
+    static let medicalEmergencyPhrases: [String] = [
+        "seizure*", "seizing", "convuls*", "chest pain", "chest hurts", "heart attack", "cant breathe",
+        "cannot breathe", "trouble breathing", "hard to breathe", "passed out", "fainted", "hallucinat*",
+        "seeing things", "hearing things", "delirium", "the dts", "too many pills", "vomiting blood",
+        "throwing up blood",
+    ]
+
+    static func isMedicalEmergency(_ text: String) -> Bool {
+        CoachText.matchesAny(CoachText.normalize(text), medicalEmergencyPhrases)
+    }
+
+    static var medicalEmergencyReply: String {
+        String(localized: "That sounds like it could be a medical emergency. Please call your local emergency number now, or ask someone near you for help. Stopping some habits, like heavy drinking, can cause dangerous withdrawal, so a doctor should know what's happening.")
+    }
 }
 
 /// Text helpers shared by intent and crisis detection.

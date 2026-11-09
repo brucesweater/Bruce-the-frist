@@ -136,13 +136,15 @@ def phone_shot(bg, app_screen, line1, line2, sub, angle=0, phone_width=1000, x=N
 # The set, in order. The first is Bruce holding his phone; the rest are framed phones on one wide sky that turns from
 # night to sunrise across the set. x and y place the phone (center x, top y) within its screenshot.
 SHOTS = [
-    dict(raw="01-today", lines=("QUIT ANYTHING.", "ONE DAY AT A TIME."), sub="Hi, I'm Bruce. I made Unhook to help you."),
+    # Bruce's phone shows the welcome screen, not sample stats, so nobody reads the frame as his own streak.
+    dict(raw="30-onboarding-welcome", lines=("QUIT ANYTHING.", "ONE DAY AT A TIME."),
+         sub="Hi, I'm Bruce. I made Unhook to help you."),
     dict(raw="07-sos", lines=("BEAT ANY", "CRAVING."), sub="60 seconds of guided breathing.",
          x=800, y=880, angle=-8, badge=("NO ADS", ["NO ACCOUNT", "NO TRACKING"])),
     dict(raw="10-progress", lines=("LEVEL UP", "EVERY DAY."), sub="Daily missions, XP and 12 ranks.", x=610, y=900, angle=7),
     dict(raw="21-challenge", lines=("THE 30-DAY", "RESET."), sub="One small step a day.", x=660, y=980, angle=0,
          icon="calendar"),
-    dict(raw="05-habit-detail-more", lines=("WATCH YOUR", "BODY HEAL."), sub="A recovery timeline for every habit.",
+    dict(raw="05-habit-detail-more", lines=("TRACK YOUR", "RECOVERY."), sub="See what gets better, step by step.",
          x=690, y=980, angle=-6, icon="heart"),
     dict(raw="09-coach", lines=("PRIVATE", "BY DESIGN."), sub="A coach on your iPhone. No account, no tracking.",
          x=660, y=980, angle=0, icon="lock"),

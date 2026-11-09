@@ -292,8 +292,17 @@ struct SettingsView: View {
             ShareLink(item: shareMessage) {
                 SettingsRowLabel(title: "Tell a friend", systemImage: "heart.fill", tint: Palette.rose)
             }
-            Button(action: rateApp) {
-                SettingsRowLabel(title: "Rate Unhook", systemImage: "star.fill", tint: Palette.sun)
+            if let writeReview = FounderLinks.writeReview {
+                Link(destination: writeReview) {
+                    SettingsRowLabel(title: "Rate Unhook", systemImage: "star.fill", tint: Palette.sun, accessory: .external)
+                }
+            } else {
+                Button {
+                    // A manual tap doesn't call markRequested(), so it never holds off the automatic prompt.
+                    requestReview()
+                } label: {
+                    SettingsRowLabel(title: "Rate Unhook", systemImage: "star.fill", tint: Palette.sun)
+                }
             }
         } header: {
             SettingsSectionHeader(title: "Support", systemImage: "heart.fill", tint: Palette.rose)
@@ -632,12 +641,6 @@ struct SettingsView: View {
         } catch {
             alert = SettingsAlert(title: String(localized: "Couldn't export your data"), message: error.localizedDescription)
         }
-    }
-
-    private func rateApp() {
-        // A manual request uses up one of the system's few prompts, so hold off on the automatic one.
-        ReviewPrompter.standard.markRequested()
-        requestReview()
     }
 
     /// The toggles can be on while the system permission was never granted (the user chose "Maybe later"

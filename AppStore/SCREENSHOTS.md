@@ -24,11 +24,11 @@ The first three carry the conversion. In order they answer: *What is it? Why wil
 
 | # | Headline | Sub-caption | Screen |
 |---|---|---|---|
-| 1 | **QUIT ANYTHING. ONE DAY AT A TIME.** | Hi, I'm Bruce. I made Unhook to help you. | Bruce holding his phone, showing Today (the "47 DAYS FREE" orb) |
+| 1 | **QUIT ANYTHING. ONE DAY AT A TIME.** | Hi, I'm Bruce. I made Unhook to help you. | Bruce holding his phone, showing the welcome screen (not sample stats, so it can't read as his own streak) |
 | 2 | **BEAT ANY CRAVING.** | 60 seconds of guided breathing. Laurel: NO ADS · NO ACCOUNT · NO TRACKING | SOS breathing with the user's own reason |
 | 3 | **LEVEL UP EVERY DAY.** | Daily missions, XP and 12 ranks. | Progress: rank card, this week, clean-days calendar |
 | 4 | **THE 30-DAY RESET.** | One small step a day. | The 30-Day Reset on day 5 |
-| 5 | **WATCH YOUR BODY HEAL.** | A recovery timeline for every habit. | Habit detail: recovery timeline |
+| 5 | **TRACK YOUR RECOVERY.** | See what gets better, step by step. | Habit detail: recovery timeline |
 | 6 | **PRIVATE BY DESIGN.** | A coach on your iPhone. No account, no tracking. | The coach |
 | 7 | **CELEBRATE EVERY WIN.** | Milestones from your first hour to five years. | Milestone celebration |
 | 8 | **SAVE FOR WHAT MATTERS.** | Turn the money you save into real goals. | Savings goals |

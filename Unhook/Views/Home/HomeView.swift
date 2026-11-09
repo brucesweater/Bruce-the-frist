@@ -16,10 +16,11 @@ struct HomeView: View {
     /// Set when "add habit" opened the paywall, so buying Pro carries straight on to adding the habit.
     @State private var addHabitAfterUpgrade = false
 
-    /// Whether the latest pledge belongs to the day containing `date`.
+    /// Whether a pledge belongs to the day containing `date`. Not only the latest one: after a trip east and back
+    /// west, the latest pledge can be for a date that hasn't come yet here.
     private func hasPledged(on date: Date) -> Bool {
-        guard let latest = pledges.first else { return false }
-        return Calendar.current.isDate(latest.day, inSameDayAs: date)
+        let today = EngagementCalendar.dayIndex(for: date)
+        return pledges.contains { EngagementCalendar.dayIndex(ofStored: $0.day) == today }
     }
 
     /// The sky behind Today warms as the longest streak passes more milestones.
@@ -99,7 +100,7 @@ struct HomeView: View {
             let pledgedToday = hasPledged(on: timeline.date)
             PledgeCard(
                 pledgedToday: pledgedToday,
-                streak: StreakCalculator.consecutiveDays(pledges.map(\.day), now: timeline.date)
+                streak: StreakCalculator.consecutiveDays(pledges.map { StoredDay.localStart(of: $0.day) }, now: timeline.date)
             ) {
                 if !pledgedToday { showingPledge = true }
             }

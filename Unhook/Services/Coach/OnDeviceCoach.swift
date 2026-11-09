@@ -9,6 +9,7 @@ import FoundationModels
 final class OnDeviceCoach: CravingCoach {
     private let fallback = ScriptedCoach()
     private var session: LanguageModelSession?
+    private(set) var lastReplyWasBlocked = false
 
     init() {}
 
@@ -22,6 +23,7 @@ final class OnDeviceCoach: CravingCoach {
     }
 
     func reply(to message: String, history: [CoachMessage], context: CoachContext) async -> String {
+        lastReplyWasBlocked = false
         // Never let a model improvise around a crisis: the fixed reply points to real help.
         if CoachSafety.isCrisis(message) {
             return CoachSafety.crisisReply
@@ -37,9 +39,18 @@ final class OnDeviceCoach: CravingCoach {
             let response = try await activeSession.respond(to: message)
             let text = Self.clean(response.content)
             return text.isEmpty ? fallback.response(to: message, history: history, context: context) : text
+        } catch let error as LanguageModelSession.GenerationError {
+            // Start a fresh session (seeded with a recap of the conversation) next time.
+            session = nil
+            // Apple's guardrails mostly block messages about self-harm, so answer with care and real help rather
+            // than a craving tip.
+            if case .guardrailViolation = error {
+                lastReplyWasBlocked = true
+                return CoachSafety.blockedReply
+            }
+            return fallback.response(to: message, history: history, context: context)
         } catch {
-            // Guardrail violation, full context window, model unavailable… Start a fresh session (seeded with a
-            // recap of the conversation) next time, and answer this message with the scripted coach.
+            // Full context window, model unavailable… Answer this message with the scripted coach.
             session = nil
             return fallback.response(to: message, history: history, context: context)
         }

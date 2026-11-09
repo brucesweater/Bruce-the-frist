@@ -29,9 +29,6 @@ struct GoalEditorView: View {
 
     private static let defaultEmoji = "🎁"
     private static let rowBackground = Palette.surface.opacity(0.72)
-    /// `HabitDraft.parse` caps daily amounts at 1,000,000, which is only about $40 in dong or $740 in won. A price
-    /// gets far more room, so a ₩1,500,000 laptop isn't silently saved as ₩1,000,000.
-    private static let maxCost: Double = 1_000_000_000_000
 
     private static let quickPicks: [QuickPick] = [
         QuickPick(emoji: "✈️", title: String(localized: "Weekend trip")),
@@ -54,7 +51,7 @@ struct GoalEditorView: View {
     }
 
     private var parsedCost: Double {
-        HabitDraft.parse(costText, upTo: Self.maxCost)
+        HabitDraft.parse(costText, upTo: HabitDraft.maxMoney)
     }
 
     private var isValid: Bool {

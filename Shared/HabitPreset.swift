@@ -42,7 +42,7 @@ struct HabitPreset: Identifiable, Hashable {
             suggestedReasons: [String(localized: "Be present with the people around me"), String(localized: "Stop comparing myself to others"), String(localized: "Get my focus back")]
         ),
         HabitPreset(
-            id: "porn", title: String(localized: "Porn"), emoji: "🔞", theme: .midnight,
+            id: "porn", title: String(localized: "Porn"), emoji: "🙈", theme: .midnight,
             dailyMinutes: 30,
             suggestedReasons: [String(localized: "Build real connection"), String(localized: "Get my energy and focus back"), String(localized: "Feel in control again")]
         ),

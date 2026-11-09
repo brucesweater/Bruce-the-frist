@@ -25,7 +25,7 @@ It's built with SwiftUI, SwiftData, StoreKit 2, App Intents, WidgetKit and Apple
 
 - **Personalized onboarding:** habit, quit date (or "earlier"), daily cost and time, your reasons, then a one-year projection, reminders opt-in and the Pro offer. The habit is saved before the paywall, so nothing is lost.
 - **Live streaks:** days, hours, minutes and seconds, with a progress ring to the next of 13 milestones (1 hour to 5 years) and milestone notifications.
-- **Recovery timeline** for each habit type (smoking follows WHO, CDC and NHS milestones), worded cautiously, with a "not medical advice" note.
+- **Recovery timeline** for each habit type (smoking follows WHO and NHS milestones), worded cautiously, with a "not medical advice" note.
 - **Money, time and units saved,** plus **savings goals** funded in order from what you've saved.
 - **SOS craving mode:** 60 seconds of guided breathing with your own reasons, then "what set it off?" and "how strong was it?", distraction ideas, and a celebration.
 - **AI Craving Coach:** Apple's on-device model on iOS 26 devices with Apple Intelligence, and a scripted coach on every other iPhone. Crisis messages in any of the 16 languages get a fixed, caring reply and a helpline link.

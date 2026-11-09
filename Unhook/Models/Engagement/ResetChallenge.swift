@@ -66,7 +66,7 @@ enum ResetChallenge {
     /// The challenge day it is now: days since `startDay` plus one, capped at 30.
     static func currentDay(for progress: ChallengeProgress, now: Date = .now, calendar: Calendar = .current) -> Int {
         let elapsed = EngagementCalendar.dayIndex(for: now, calendar: calendar)
-            - EngagementCalendar.dayIndex(for: progress.startDay, calendar: calendar)
+            - EngagementCalendar.dayIndex(ofStored: progress.startDay)
         return min(max(elapsed + 1, 1), length)
     }
 
@@ -144,7 +144,7 @@ enum ResetChallenge {
         if let active = activeRun(in: runs) {
             return active
         }
-        let run = ChallengeProgress(challengeID: id, startDay: calendar.startOfDay(for: now))
+        let run = ChallengeProgress(challengeID: id, startDay: StoredDay.make(for: now, calendar: calendar))
         run.joinedAt = now
         context.insert(run)
         return run

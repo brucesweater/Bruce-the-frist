@@ -111,7 +111,7 @@ enum XPCalculator {
         let cleanSeconds = habits.reduce(0.0) { $0 + $1.stats(at: now).lifetimeClean }
         let cleanDays = (cleanSeconds / 86_400).rounded(.down).clampedWholeNumber
 
-        let pledgeDays = Set(pledges.map { EngagementCalendar.dayIndex(for: $0.day, calendar: calendar) })
+        let pledgeDays = Set(pledges.map { EngagementCalendar.dayIndex(ofStored: $0.day) })
         var cravingsByDay: [Int: Int] = [:]
         for urge in urges where urge.resisted {
             cravingsByDay[EngagementCalendar.dayIndex(for: urge.date, calendar: calendar), default: 0] += 1
@@ -120,7 +120,7 @@ enum XPCalculator {
         let countedCravings = cravingsByDay.values.reduce(0) { $0 + min($1, XPRewards.maxCravingsPerDay) }
         var checkedByDay: [Int: Set<String>] = [:]
         for completion in missions {
-            let day = EngagementCalendar.dayIndex(for: completion.day, calendar: calendar)
+            let day = EngagementCalendar.dayIndex(ofStored: completion.day)
             checkedByDay[day, default: []].insert(completion.missionID)
         }
         let tally = missionTally(pledgeDays: pledgeDays, cravingDays: cravingDays, checkedByDay: checkedByDay)

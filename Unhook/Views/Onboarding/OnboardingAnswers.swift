@@ -84,7 +84,7 @@ struct OnboardingAnswers {
         return String(localized: "My habit")
     }
 
-    var dailyCost: Double { HabitDraft.parse(draft.costText) }
+    var dailyCost: Double { HabitDraft.parse(draft.costText, upTo: HabitDraft.maxMoney) }
     var dailyMinutes: Double { HabitDraft.parse(draft.minutesText, upTo: HabitDraft.maxDailyMinutes) }
     var unitsPerDay: Double { HabitDraft.parse(draft.unitsText) }
 

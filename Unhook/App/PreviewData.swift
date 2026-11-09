@@ -54,10 +54,10 @@ enum PreviewData {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         if let mission = DailyMissions.missions(for: .now, calendar: calendar).first(where: { $0.kind == .selfReported }) {
-            context.insert(MissionCompletion(day: today, missionID: mission.id))
+            context.insert(MissionCompletion(day: StoredDay.make(for: .now, calendar: calendar), missionID: mission.id))
         }
         let resetStart = calendar.date(byAdding: .day, value: -3, to: today) ?? today
-        let reset = ChallengeProgress(challengeID: ResetChallenge.id, startDay: resetStart)
+        let reset = ChallengeProgress(challengeID: ResetChallenge.id, startDay: StoredDay.make(for: resetStart, calendar: calendar))
         reset.completedDays = [1, 2, 3]
         context.insert(reset)
     }

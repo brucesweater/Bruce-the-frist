@@ -43,7 +43,7 @@ UNHOOK PRO (In-App Purchases, submitted with this version)
 Both subscriptions are in the "Unhook Pro" subscription group. Other ways to open the paywall: Settings > Unhook Pro, or try to add a second habit (+ on the Today tab) or a second savings goal. The free plan includes one habit and one active savings goal. Restore Purchases, Terms of Use and Privacy Policy are on the paywall. Pro unlocks unlimited habits and goals, full insights and alternate app icons (Settings > App Icon).
 
 HEALTH AND SAFETY
-- Unhook is a self-help tool and gives no medical advice. The recovery timeline shows general information with an in-app "not medical advice" note. The smoking timeline follows published WHO, CDC and NHS guidance; the alcohol timeline tells heavy daily drinkers to talk to a doctor before stopping.
+- Unhook is a self-help tool and gives no medical advice. The recovery timeline shows general information with an in-app "not medical advice" note. The smoking timeline follows published WHO and NHS guidance; the alcohol timeline tells heavy daily drinkers to talk to a doctor before stopping.
 - Crisis resources: Settings > Support > "Find a free helpline near you" opens findahelpline.com, a free directory of crisis and support lines by country. This is never paywalled.
 - Habits such as porn, alcohol, cannabis and gambling appear only as things the user wants to quit. The app contains no sexual content, sells nothing age-restricted and has no gambling mechanics.
 

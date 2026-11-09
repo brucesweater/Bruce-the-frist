@@ -88,11 +88,21 @@ private struct RankUpCelebrationView: View {
     var body: some View {
         ZStack {
             DawnBackground(glow: 0.45 + 0.55 * rank.skyProgress)
-            VStack(spacing: 28) {
-                Spacer(minLength: 0)
-                medallion
-                headline
-                Spacer(minLength: 0)
+            // With large text the medallion and words scroll, and the button stays pinned so it's always on screen.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 28) {
+                        medallion
+                        headline
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: 520)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            }
+            .safeAreaInset(edge: .bottom) {
                 Button {
                     Haptics.tap()
                     onDone()
@@ -100,16 +110,19 @@ private struct RankUpCelebrationView: View {
                     Text("Keep going")
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, 28)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
-            .frame(maxWidth: 520)
             if !reduceMotion {
                 ConfettiView()
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { onDone() }
         .onAppear {
             Haptics.success()
             withAnimation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.55).delay(0.1)) {
@@ -140,7 +153,8 @@ private struct RankUpCelebrationView: View {
                 .rotationEffect(.degrees(spinning ? 360 : 0))
             RankMedallion(rank: rank, size: 150)
         }
-        .frame(height: 260)
+        // Narrower than the halo, so the halo never makes the scrolling content wider than the screen.
+        .frame(width: 260, height: 260)
         .scaleEffect(appeared || reduceMotion ? 1 : 0.4)
         .opacity(appeared || reduceMotion ? 1 : 0)
         .accessibilityHidden(true)

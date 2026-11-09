@@ -46,6 +46,15 @@ struct RootView: View {
         .onChange(of: dataResetCount) {
             EngagementData.eraseAll(in: context)
         }
+        .onChange(of: hasOnboarded) { _, done in
+            guard done, router.pendingChallenge else { return }
+            router.pendingChallenge = false
+            Task {
+                // Let the onboarding cross-fade finish before the sheet slides up.
+                try? await Task.sleep(for: .milliseconds(600))
+                router.showChallenge()
+            }
+        }
         // Widget and notification links: unhook://sos opens SOS, unhook://challenge/reset30 opens the
         // 30-Day Reset, anything else goes to Today.
         .onOpenURL { url in
@@ -57,6 +66,9 @@ struct RootView: View {
                 router.selectedTab = .today
                 if hasOnboarded {
                     router.showChallenge()
+                } else {
+                    // Someone who installs from the event page lands in onboarding first: open the challenge after.
+                    router.pendingChallenge = true
                 }
             default:
                 router.selectedTab = .today

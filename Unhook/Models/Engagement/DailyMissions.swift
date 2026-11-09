@@ -105,12 +105,13 @@ enum DailyMissions {
         urges: [Urge],
         calendar: Calendar = .current
     ) -> Bool {
-        let checked = completions.contains { $0.missionID == mission.id && calendar.isDate($0.day, inSameDayAs: day) }
+        let dayIndex = EngagementCalendar.dayIndex(for: day, calendar: calendar)
+        let checked = completions.contains { $0.missionID == mission.id && EngagementCalendar.dayIndex(ofStored: $0.day) == dayIndex }
         switch mission.kind {
         case .selfReported:
             return checked
         case .pledge:
-            return pledges.contains { calendar.isDate($0.day, inSameDayAs: day) }
+            return pledges.contains { EngagementCalendar.dayIndex(ofStored: $0.day) == dayIndex }
         case .sos:
             return checked || urges.contains { $0.resisted && calendar.isDate($0.date, inSameDayAs: day) }
         }

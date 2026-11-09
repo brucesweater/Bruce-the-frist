@@ -82,7 +82,7 @@ struct InsightsView: View {
 
     private func weekSection(_ cleanDays: CleanDays, now: Date) -> some View {
         let beaten = CleanDays.count(urges.filter(\.resisted).map(\.date), inLast: 7, now: now)
-        let pledged = CleanDays.count(pledges.map(\.day), inLast: 7, now: now)
+        let pledged = CleanDays.count(pledges.map { StoredDay.localStart(of: $0.day) }, inLast: 7, now: now)
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "This week", systemImage: "calendar", tint: Palette.amber, trailing: Text("Last 7 days"))
             HStack(spacing: 10) {
@@ -112,7 +112,7 @@ struct InsightsView: View {
             bestStreak: totals.bestStreak,
             cravingsBeaten: urges.filter(\.resisted).count,
             moneySaved: totals.moneySaved,
-            pledgeStreak: StreakCalculator.consecutiveDays(pledges.map(\.day), now: now),
+            pledgeStreak: StreakCalculator.consecutiveDays(pledges.map { StoredDay.localStart(of: $0.day) }, now: now),
             totalPledges: pledges.count
         )
         return Achievement.evaluate(input)
@@ -160,7 +160,7 @@ struct InsightsView: View {
 
     private func moodSection(now: Date) -> some View {
         let cutoff = CleanDays.firstDay(ofLast: 30, now: now)
-        let recent = pledges.filter { $0.day >= cutoff }
+        let recent = pledges.filter { StoredDay.localStart(of: $0.day) >= cutoff }
         return InsightsSection(
             title: "Mood",
             systemImage: "face.smiling",

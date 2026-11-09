@@ -49,7 +49,7 @@ struct OnboardingProjectionTests {
 
     @Test func hugeInputsStayFinite() {
         let projection = OnboardingProjection(dailyCost: .greatestFiniteMagnitude, dailyMinutes: 0, unitsPerDay: 1e300)
-        #expect(projection.dailyCost == OnboardingProjection.maxDailyValue)
+        #expect(projection.dailyCost == HabitDraft.maxMoney)
         #expect(projection.unitsPerDay == OnboardingProjection.maxDailyValue)
         #expect(projection.yearlyMoney.isFinite)
         #expect(projection.yearlyUnits.isFinite)
@@ -224,6 +224,23 @@ struct OnboardingAnswersTests {
 
         answers.draft.quitDate = now.addingTimeInterval(-10_000 * day)
         #expect(answers.milestonePreview(now: now) == nil)
+    }
+
+    @Test func dailyCostsAboveAMillionAreKept() throws {
+        // 2,000,000 dong is about $80, a realistic day of gambling. It must not be cut to 1,000,000.
+        let gambling = try preset("gambling")
+        var answers = OnboardingAnswers()
+        answers.choose(gambling)
+        answers.draft.costText = "2000000"
+
+        #expect(answers.dailyCost == 2_000_000)
+        #expect(answers.projection.dailyCost == 2_000_000)
+        #expect(isClose(answers.projection.yearlyMoney, 730_000_000))
+
+        // A run of digits is still capped, so totals stay finite.
+        answers.draft.costText = "99999999999999999999"
+        #expect(answers.dailyCost == HabitDraft.maxMoney)
+        #expect(answers.projection.yearlyMoney.isFinite)
     }
 
     @Test func makeHabitUsesEveryAnswer() throws {

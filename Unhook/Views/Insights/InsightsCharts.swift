@@ -132,7 +132,7 @@ struct InsightsMoodChart: View {
         Chart {
             ForEach(pledges) { pledge in
                 AreaMark(
-                    x: .value("Day", pledge.day, unit: .day),
+                    x: .value("Day", StoredDay.localStart(of: pledge.day), unit: .day),
                     yStart: .value("Mood", 1),
                     yEnd: .value("Mood", pledge.mood)
                 )
@@ -140,7 +140,7 @@ struct InsightsMoodChart: View {
                 .foregroundStyle(InsightsChartStyle.moodArea)
 
                 LineMark(
-                    x: .value("Day", pledge.day, unit: .day),
+                    x: .value("Day", StoredDay.localStart(of: pledge.day), unit: .day),
                     y: .value("Mood", pledge.mood)
                 )
                 .interpolationMethod(.monotone)
@@ -149,14 +149,14 @@ struct InsightsMoodChart: View {
             }
             if let latest = pledges.last {
                 PointMark(
-                    x: .value("Day", latest.day, unit: .day),
+                    x: .value("Day", StoredDay.localStart(of: latest.day), unit: .day),
                     y: .value("Mood", latest.mood)
                 )
                 .foregroundStyle(Palette.sun.opacity(0.25))
                 .symbolSize(300)
 
                 PointMark(
-                    x: .value("Day", latest.day, unit: .day),
+                    x: .value("Day", StoredDay.localStart(of: latest.day), unit: .day),
                     y: .value("Mood", latest.mood)
                 )
                 .foregroundStyle(Palette.sun)

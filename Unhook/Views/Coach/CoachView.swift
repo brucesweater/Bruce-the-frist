@@ -206,6 +206,15 @@ struct CoachView: View {
             return
         }
 
+        // A possible medical emergency (severe withdrawal, chest pain…) gets emergency advice, not craving tips.
+        if CoachSafety.isMedicalEmergency(text) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                messages.append(CoachMessage(role: .coach, text: CoachSafety.medicalEmergencyReply))
+            }
+            Self.announce(CoachSafety.medicalEmergencyReply)
+            return
+        }
+
         let activeCoach: any CravingCoach = coach ?? ScriptedCoach()
         let currentContext = context
         withAnimation(.easeOut(duration: 0.2)) {
@@ -222,6 +231,9 @@ struct CoachView: View {
             withAnimation(.easeOut(duration: 0.25)) {
                 messages.append(CoachMessage(role: .coach, text: reply))
                 isAwaitingReply = false
+                if activeCoach.lastReplyWasBlocked {
+                    showsCrisisResources = true
+                }
             }
             Self.announce(reply)
         }

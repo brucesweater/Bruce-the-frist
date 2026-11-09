@@ -87,8 +87,23 @@ struct ShareCardView: View {
     let stats: HabitStats
     let currencyCode: String
 
-    private var days: Int {
-        DurationFormatter.parts(stats.currentStreak).days
+    private var parts: DurationFormatter.Parts {
+        DurationFormatter.parts(stats.currentStreak)
+    }
+
+    private var days: Int { parts.days }
+
+    /// The headline figure: whole days once the streak passes a day, and hours or minutes before that,
+    /// so a first-day card (e.g. shared from the 1 Hour / 12 Hours celebration) never leads with "0 days".
+    private var headline: (value: Int, label: Text) {
+        let p = parts
+        if p.days > 0 {
+            return (p.days, p.days == 1 ? Text("day free from \(habit.name)") : Text("days free from \(habit.name)"))
+        }
+        if p.hours > 0 {
+            return (p.hours, p.hours == 1 ? Text("hour free from \(habit.name)") : Text("hours free from \(habit.name)"))
+        }
+        return (p.minutes, p.minutes == 1 ? Text("minute free from \(habit.name)") : Text("minutes free from \(habit.name)"))
     }
 
     /// The sky in the orb is already warm on day one and reaches full sunrise at three months.
@@ -115,7 +130,7 @@ struct ShareCardView: View {
     }
 
     private var dayCount: some View {
-        Text(days, format: .number)
+        Text(headline.value, format: .number)
             .font(.system(size: 84, weight: .heavy, design: .rounded))
             .foregroundStyle(LinearGradient(colors: [Color.white, Palette.sun], startPoint: .top, endPoint: .bottom))
             .monospacedDigit()
@@ -126,20 +141,14 @@ struct ShareCardView: View {
     }
 
     private var daysLabel: some View {
-        Group {
-            if days == 1 {
-                Text("day free from \(habit.name)")
-            } else {
-                Text("days free from \(habit.name)")
-            }
-        }
-        .font(.system(size: 13, weight: .bold, design: .rounded))
-        .tracking(1.6)
-        .textCase(.uppercase)
-        .foregroundStyle(Palette.amber)
-        .multilineTextAlignment(.center)
-        .lineLimit(2)
-        .minimumScaleFactor(0.7)
+        headline.label
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .tracking(1.6)
+            .textCase(.uppercase)
+            .foregroundStyle(Palette.amber)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
     }
 
     private var metrics: [HabitShareMetric] {

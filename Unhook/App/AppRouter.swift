@@ -22,6 +22,8 @@ final class AppRouter {
     var celebration: MilestoneCelebration?
     /// Shows the 30-Day Reset challenge (presented by `RootView`).
     var isShowingChallenge = false
+    /// A challenge link (unhook://challenge/…) that arrived before onboarding finished; opened once it does.
+    var pendingChallenge = false
 
     func showPaywall(_ reason: PaywallReason) {
         guard Monetization.isProEnabled else { return }

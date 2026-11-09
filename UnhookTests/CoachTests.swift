@@ -268,6 +268,49 @@ struct CoachTests {
         }
     }
 
+    @Test func detectsIndirectCrisisPhrasing() {
+        let messages = [
+            "I just want to end things",
+            "I can't go on like this",
+            "Everyone would be better off without me",
+            "What's the point of living",
+            "I want to stop existing",
+            "I'm thinking about taking a bottle of pills",
+            "I keep cutting again",
+        ]
+        for message in messages {
+            #expect(CoachSafety.isCrisis(message), "“\(message)” should be treated as a crisis")
+        }
+    }
+
+    @Test func everydayTalkIsNotAMedicalEmergencyOrCrisis() {
+        let messages = [
+            "I never wake up before nine",
+            "I'll jump off the couch and go for a walk",
+            "I'm dying for a cigarette",
+            "My chest feels a bit tight from the cold",
+            "I'm seeing my friends tonight",
+        ]
+        for message in messages {
+            #expect(!CoachSafety.isCrisis(message), "“\(message)” shouldn't be treated as a crisis")
+            #expect(!CoachSafety.isMedicalEmergency(message), "“\(message)” shouldn't be treated as an emergency")
+        }
+    }
+
+    @Test func detectsPossibleMedicalEmergencies() {
+        let messages = [
+            "I quit drinking yesterday and I think I had a seizure",
+            "I have chest pain since I stopped",
+            "I can't breathe properly",
+            "I'm hallucinating, I see bugs on the wall",
+            "I'm shaking and I think it's the DTs",
+        ]
+        for message in messages {
+            #expect(CoachSafety.isMedicalEmergency(message), "“\(message)” should get emergency advice")
+        }
+        #expect(CoachSafety.medicalEmergencyReply.contains("emergency"))
+    }
+
     @Test func crisisGetsTheFixedSupportiveReply() {
         let coach = ScriptedCoach()
         let reply = coach.response(to: "I want to end it all", history: [], context: Self.sampleContext)

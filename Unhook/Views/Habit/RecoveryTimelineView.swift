@@ -120,7 +120,7 @@ struct RecoveryTimelineView: View {
             if let note = RecoveryTimeline.sourceNote(for: habit.presetID) {
                 Text(note)
             }
-            Text("Everyone is different. This is general information, not medical advice.")
+            Text("Everyone is different. This is general information, not medical advice. Check with a doctor before making medical decisions.")
         }
         .font(.caption)
         .foregroundStyle(Palette.textSecondary)

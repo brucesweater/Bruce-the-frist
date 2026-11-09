@@ -113,10 +113,11 @@ struct MissionsCard: View {
     private func toggle(_ mission: Mission) {
         let calendar = Calendar.current
         let now = Date.now
-        let existing = completions.filter { $0.missionID == mission.id && calendar.isDate($0.day, inSameDayAs: now) }
+        let today = EngagementCalendar.dayIndex(for: now, calendar: calendar)
+        let existing = completions.filter { $0.missionID == mission.id && EngagementCalendar.dayIndex(ofStored: $0.day) == today }
         withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) {
             if existing.isEmpty {
-                context.insert(MissionCompletion(day: calendar.startOfDay(for: now), missionID: mission.id, completedAt: now))
+                context.insert(MissionCompletion(day: StoredDay.make(for: now, calendar: calendar), missionID: mission.id, completedAt: now))
             } else {
                 existing.forEach { context.delete($0) }
             }

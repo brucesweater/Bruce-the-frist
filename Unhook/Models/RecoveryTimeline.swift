@@ -13,7 +13,7 @@ struct RecoveryStep: Identifiable, Hashable {
 
 /// "What's happening in your body and mind" for each preset habit.
 ///
-/// Smoking follows the widely published WHO, CDC and NHS quit timeline. Every other timeline sticks to
+/// Smoking follows the widely published WHO and NHS quit timeline. Every other timeline sticks to
 /// conservative, commonly reported experiences (sleep, mood, focus, energy, money, cravings easing) and never
 /// makes precise clinical promises. Every list is sorted ascending with unique offsets.
 enum RecoveryTimeline {
@@ -48,7 +48,7 @@ enum RecoveryTimeline {
     /// Where the steps come from, when they follow published health guidance.
     static func sourceNote(for presetID: String) -> String? {
         guard presetID == "smoking" else { return nil }
-        return String(localized: "Based on guidance from the WHO, the CDC and the NHS.")
+        return String(localized: "Based on guidance from the WHO and the NHS.")
     }
 
     /// Where `elapsed` clean time sits on `steps`.
