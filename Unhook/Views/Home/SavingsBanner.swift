@@ -7,12 +7,18 @@ struct SavingsBanner: View {
     let currencyCode: String
 
     @Query private var urges: [Urge]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let cravingsBeaten = urges.filter(\.resisted).count
+        // Side by side; stacked at the largest text sizes, where a third of the row
+        // can't fit "RECLAIMED" or "CRAVINGS" on one line.
+        let layout = dynamicTypeSize >= .xxxLarge
+            ? AnyLayout(VStackLayout(spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 10))
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             let totals = HabitTotals(habits: habits, at: timeline.date)
-            HStack(spacing: 10) {
+            layout {
                 TodayStatTile(
                     value: MoneyFormatter.precise(totals.moneySaved, code: currencyCode),
                     title: "Money saved",

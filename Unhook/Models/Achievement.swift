@@ -6,6 +6,8 @@ struct AchievementInput {
     var bestStreak: TimeInterval = 0
     var cravingsBeaten = 0
     var moneySaved: Double = 0
+    /// The currency `moneySaved` is in; the money thresholds scale with it.
+    var currencyCode = "USD"
     var pledgeStreak = 0
     var totalPledges = 0
 }
@@ -20,6 +22,9 @@ struct Achievement: Identifiable, Equatable {
 
     static func evaluate(_ input: AchievementInput) -> [Achievement] {
         let day: TimeInterval = 86_400
+        // About $100 and $1,000 in the user's currency, so in yen or dong the money badges don't unlock in minutes.
+        let saverGoal = LocalPrice.threshold(fromUSD: 100, currencyCode: input.currencyCode)
+        let bigSaverGoal = LocalPrice.threshold(fromUSD: 1_000, currencyCode: input.currencyCode)
         return [
             Achievement(id: "first-step", title: String(localized: "First Step"), detail: String(localized: "Start a streak"), symbol: "figure.walk", theme: .ocean, isUnlocked: input.habitCount > 0),
             Achievement(id: "day-1", title: String(localized: "24 Hours"), detail: String(localized: "One full day free"), symbol: "sun.max.fill", theme: .gold, isUnlocked: input.bestStreak >= day),
@@ -29,8 +34,8 @@ struct Achievement: Identifiable, Equatable {
             Achievement(id: "year-1", title: String(localized: "Year of Freedom"), detail: String(localized: "365 days free"), symbol: "crown.fill", theme: .gold, isUnlocked: input.bestStreak >= 365 * day),
             Achievement(id: "craving-1", title: String(localized: "Wave Rider"), detail: String(localized: "Beat a craving"), symbol: "water.waves", theme: .ocean, isUnlocked: input.cravingsBeaten >= 1),
             Achievement(id: "craving-25", title: String(localized: "Unshakeable"), detail: String(localized: "Beat 25 cravings"), symbol: "shield.lefthalf.filled", theme: .midnight, isUnlocked: input.cravingsBeaten >= 25),
-            Achievement(id: "saved-100", title: String(localized: "Saver"), detail: String(localized: "Save 100"), symbol: "banknote.fill", theme: .forest, isUnlocked: input.moneySaved >= 100),
-            Achievement(id: "saved-1000", title: String(localized: "Big Saver"), detail: String(localized: "Save 1,000"), symbol: "chart.line.uptrend.xyaxis", theme: .mint, isUnlocked: input.moneySaved >= 1_000),
+            Achievement(id: "saved-100", title: String(localized: "Saver"), detail: String(localized: "Save \(MoneyFormatter.rounded(saverGoal, code: input.currencyCode))"), symbol: "banknote.fill", theme: .forest, isUnlocked: input.moneySaved >= saverGoal),
+            Achievement(id: "saved-1000", title: String(localized: "Big Saver"), detail: String(localized: "Save \(MoneyFormatter.rounded(bigSaverGoal, code: input.currencyCode))"), symbol: "chart.line.uptrend.xyaxis", theme: .mint, isUnlocked: input.moneySaved >= bigSaverGoal),
             Achievement(id: "pledge-7", title: String(localized: "Committed"), detail: String(localized: "7-day pledge streak"), symbol: "hand.raised.fill", theme: .candy, isUnlocked: input.pledgeStreak >= 7),
             Achievement(id: "pledge-30", title: String(localized: "Devoted"), detail: String(localized: "30 pledges taken"), symbol: "heart.fill", theme: .candy, isUnlocked: input.totalPledges >= 30),
         ]

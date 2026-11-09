@@ -63,6 +63,7 @@ enum EngagementAchievements {
             bestStreak: totals.bestStreak,
             cravingsBeaten: urges.filter(\.resisted).count,
             moneySaved: totals.moneySaved,
+            currencyCode: AppSettings.currencyCode,
             pledgeStreak: StreakCalculator.consecutiveDays(pledges.map { StoredDay.localStart(of: $0.day) }, now: now),
             totalPledges: pledges.count
         )

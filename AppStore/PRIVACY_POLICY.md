@@ -1,77 +1,48 @@
-# Privacy policy template
+# Privacy policy
 
-App Store Connect needs a public **Privacy Policy URL** for every app, even one that collects nothing. This is a starting point that matches what Unhook actually does (see the App Privacy answers in [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md)).
+Unhook's privacy policy is a Notion page. It still has to be published before release ([see below](#before-release-publish-it)):
 
-**How to use it**
+**https://onyx-payment-888.notion.site/Unhook-Privacy-Policy-413b68ad1a0f818bb77dd8f06dfb3919**
 
-1. Replace every `REPLACE_ME_…` value.
-2. Host it as a plain web page, for example `https://<your-domain>/privacy`.
-3. Put that URL in `metadata/en-US/privacy_url.txt`, in the description's "Privacy Policy:" line and in App Store Connect's *Privacy Policy URL* field. Guideline 3.1.2 also requires a privacy policy inside the app: the paywall's *Privacy Policy* button already opens an in-app copy (`PrivacyPolicyView`), so keep the two saying the same thing.
-4. Update it **before** you ship anything that changes what data leaves the device.
-5. Keep it consistent with the in-app policy (`Unhook/Views/Paywall/PrivacyPolicyView.swift`) and with the App Privacy answers. When this kit was written the in-app copy didn't yet mention the coach, widgets or data export by name, so add short lines for them there (or remove them here if a feature doesn't ship).
-6. Before publishing, check that **Settings → Erase all data** really removes everything listed below, savings goals included. When this kit was written it deleted habits, slips, cravings and pledges but not savings goals; the integrator was asked to fix that.
+This file doesn't hold a copy of the policy. It says where the policy is used, and how to keep it right when the app changes.
 
-> This template isn't legal advice. If you add analytics, accounts, community features or a backend, or if you sell to employers or insurers, have a lawyer review the policy. GDPR, UK GDPR, CCPA/CPRA and US state health-data laws such as Washington's My Health My Data Act can apply.
+## Where the URL is used
 
----
+| Place | Where it comes from |
+|---|---|
+| App Store Connect → App Information → *Privacy Policy URL* | `metadata/en-US/privacy_url.txt`, uploaded by `[asc metadata]` |
+| The "Privacy:" line at the end of the App Store description | `metadata/en-US/description.txt` |
+| Settings → Privacy & security → **Privacy Policy website**, and "Read this policy on the web" at the end of the in-app policy | `FounderLinks.privacyPolicy` in `Unhook/Views/Founder/FounderComponents.swift` |
 
-## Unhook Privacy Policy
+If the URL ever changes, update all three.
 
-*Last updated: REPLACE_ME_DATE*
+The support page works the same way: `metadata/en-US/support_url.txt`, the "Support:" line of the description, and `FounderLinks.supportPage` (Settings → Support → **Support website**).
 
-Unhook ("the app") is made by REPLACE_ME_LEGAL_NAME ("we"). We built Unhook so you can work on sensitive habits without giving that information to anyone, including us.
+## Before release: publish it
 
-### The short version
+The page exists in Notion, but it still has to be published. In Notion, open it and choose **Share → Publish → Publish**. Do the same for the support page. Then open both URLs in a private browser window and check that they load without signing in. App Review opens these links, and a policy that doesn't load can get the app rejected (Guideline 5.1.1).
 
-- We don't collect, store or sell your personal data.
-- You don't need an account.
-- Your habits, streaks, notes, moods, cravings and goals stay on your device.
-- There are no ads, no analytics and no tracking.
+## Keep it the same as the in-app policy
 
-### Information stored on your device
+Settings → Privacy & security → **Privacy Policy** opens the same policy inside the app. Its text is in `Unhook/Views/Paywall/PrivacyPolicyView.swift`, and the Notion page says the same thing. Keep the two in sync:
 
-Unhook stores what you enter: habit names, quit dates, costs, reasons, slips, cravings and their triggers, notes, daily pledges and moods, and savings goals. This information is saved on your device only. We can't see it.
+- Change both at the same time, with the same words.
+- Update the effective date in both. In the app it's `effectiveDate` in `PrivacyPolicyView.swift` (currently November 9, 2026).
+- Use the same contact email in both. The app uses `FounderLinks.emailAddress`.
 
-If you delete the app, or use **Settings → Erase all data**, this information is removed from your device. Device backups you make (for example iCloud Backup) follow Apple's backup settings and are controlled by you and Apple.
+## When features change
 
-### Purchases
+The policy describes what the app does today. Before you ship a change like the ones below, update the in-app policy and the Notion page together, and check the App Privacy answers in [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md#2-app-privacy-answers-nutrition-label).
 
-Unhook Pro is sold through Apple's App Store. Apple processes your payment. We receive only the information Apple provides to every developer about a purchase (for example, that a subscription is active). We don't receive your name, email address or payment details. See Apple's privacy policy at https://www.apple.com/legal/privacy/.
+| If you… | Change this part of the policy | Also update |
+|---|---|---|
+| Turn on Unhook Pro | "The short version" and "What Unhook does not do" both say there are no in-app purchases. | The description, promotional text, review notes, founder page and first onboarding screen ("Free · Private · No account needed"), which say Unhook is free |
+| Store a new kind of data | "What stays on your device" lists everything the app keeps. | Make sure **Erase all data** deletes it too |
+| Add analytics, ads, a crash reporter or any third-party SDK | "The short version" and "What Unhook does not do" | App Privacy answers and both `PrivacyInfo.xcprivacy` files |
+| Add a server, accounts, sync or community features | Most of the policy: it says Unhook has no server and nothing you enter leaves the iPhone. | App Privacy answers, the privacy manifests, and the "Your data stays on your device" row in Settings |
+| Send coach messages to a cloud AI | "The craving coach" | App Privacy answers. Ask for the user's consent first (Guideline 5.1.2). |
+| Use the camera, microphone, photos, contacts, location or health data | "What Unhook does not do" says the app has no access to any of these. | App Privacy answers |
+| Add or change a link that leaves the app | "Links" | |
+| Change how widgets, Siri, notifications, the app lock or sharing work | The matching section: "Widgets and Siri", "Notifications", "Face ID and passcode lock" or "Sharing and exporting" | |
 
-### The coach
-
-Coach replies are generated on your device, either by Apple's on-device model (on devices with Apple Intelligence) or by a built-in script. What you type into the coach and what it replies are not sent to us or to any third-party AI service, and the conversation isn't saved after you close it.
-
-### Widgets, Siri and Shortcuts
-
-Unhook's widgets read your streak from a storage area on your device that only the Unhook app and its widgets can open. If you use Unhook with Siri or the Shortcuts app, Apple processes your request under Apple's privacy policy. Unhook receives only the action you asked for, such as opening SOS, and the result stays on your device.
-
-### Face ID
-
-If you turn on the app lock, your device tells Unhook only whether authentication succeeded. Unhook never receives your face or fingerprint data.
-
-### Exporting your data
-
-When you export your data, Unhook creates a file on your device. You choose where to share or save it through your device's share sheet. We don't receive a copy.
-
-### Notifications
-
-Reminders and milestone alerts are scheduled on your device. We don't run a notification server.
-
-### Crash reports
-
-If you choose to share analytics with app developers in your device settings, Apple may share anonymous crash and performance reports with us. You can turn this off in **Settings → Privacy & Security → Analytics & Improvements**.
-
-### Children
-
-Unhook isn't directed at children under 13 and doesn't knowingly collect information from anyone, including children.
-
-### Changes to this policy
-
-If we ever change how Unhook handles data, we'll update this page and the "Last updated" date, and describe the change in the app's release notes before it takes effect.
-
-### Contact
-
-Questions about privacy: REPLACE_ME_CONTACT_EMAIL
-
-REPLACE_ME_POSTAL_ADDRESS (include it if you're registered as a trader in the EU, or if your local law requires it)
+This isn't legal advice. If you add accounts, analytics or a backend, have the policy reviewed: laws such as GDPR, UK GDPR, CCPA/CPRA and US state health-data laws (for example Washington's My Health My Data Act) can apply.

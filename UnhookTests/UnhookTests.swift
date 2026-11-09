@@ -188,6 +188,28 @@ struct AchievementTests {
         let ids = Achievement.evaluate(AchievementInput()).map(\.id)
         #expect(Set(ids).count == ids.count)
     }
+
+    @Test func moneyBadgesScaleWithTheCurrency() {
+        #expect(unlockedMoneyBadges(AchievementInput(moneySaved: 1_000, currencyCode: "USD")) == ["saved-100", "saved-1000"])
+        // ₫1,000 is a few US cents.
+        #expect(unlockedMoneyBadges(AchievementInput(moneySaved: 1_000, currencyCode: "VND")).isEmpty)
+        #expect(unlockedMoneyBadges(AchievementInput(moneySaved: 2_500_000, currencyCode: "VND")) == ["saved-100"])
+        // An unknown currency keeps the plain amounts rather than a threshold of 0.
+        #expect(unlockedMoneyBadges(AchievementInput(currencyCode: "XYZ")).isEmpty)
+        #expect(unlockedMoneyBadges(AchievementInput(moneySaved: 100, currencyCode: "XYZ")) == ["saved-100"])
+    }
+
+    @Test func moneyBadgesShowTheAmountInTheCurrency() {
+        let achievements = Achievement.evaluate(AchievementInput(currencyCode: "JPY"))
+        let saver = achievements.first { $0.id == "saved-100" }
+        let bigSaver = achievements.first { $0.id == "saved-1000" }
+        #expect(saver?.detail.contains(MoneyFormatter.rounded(15_000, code: "JPY")) == true)
+        #expect(bigSaver?.detail.contains(MoneyFormatter.rounded(150_000, code: "JPY")) == true)
+    }
+
+    private func unlockedMoneyBadges(_ input: AchievementInput) -> Set<String> {
+        Set(Achievement.evaluate(input).filter { $0.isUnlocked && $0.id.hasPrefix("saved-") }.map(\.id))
+    }
 }
 
 struct FormattingTests {
@@ -315,6 +337,14 @@ struct LocalPriceTests {
         #expect(LocalPrice.suggested(fromUSD: 10, currencyCode: "XYZ") == 0)
         #expect(LocalPrice.suggested(fromUSD: 0, currencyCode: "USD") == 0)
         #expect(LocalPrice.suggested(fromUSD: .infinity, currencyCode: "JPY") == 0)
+    }
+
+    @Test func thresholdsScaleButNeverDropToZero() {
+        #expect(LocalPrice.threshold(fromUSD: 100, currencyCode: "USD") == 100)
+        #expect(LocalPrice.threshold(fromUSD: 1_000, currencyCode: "EUR") == 1_000)
+        #expect(LocalPrice.threshold(fromUSD: 100, currencyCode: "JPY") == 15_000)
+        #expect(LocalPrice.threshold(fromUSD: 1_000, currencyCode: "VND") == 25_000_000)
+        #expect(LocalPrice.threshold(fromUSD: 100, currencyCode: "XYZ") == 100)
     }
 
     @Test func roundingPrintsCleanly() {

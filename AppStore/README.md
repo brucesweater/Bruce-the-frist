@@ -1,254 +1,258 @@
 # Unhook App Store launch kit
 
-This folder has everything needed to get Unhook onto the App Store and growing: listing copy, screenshot plan, review notes, privacy answers and the growth plan. It's text only (Markdown and `.txt`), so it never affects the app build.
+This folder has what you need to put Unhook 1.0 on the App Store: the listing text, the review notes, the screenshot plan, the in-app event and this guide. Version 1.0 is free, with no in-app purchases, so the launch path below is free-only.
+
+Most of the work is automated. You put a command such as `[asc metadata]` in a commit message, push it, and GitHub Actions does the work in App Store Connect. A few steps can only be done on Apple's websites and in Notion; they come first.
+
+Everything in this folder is text and images, so it never affects the app build.
 
 ## What's in the kit
 
 | File | What it's for |
 |---|---|
-| [`metadata/`](metadata) | App Store listing copy in fastlane `deliver` layout (see below). |
-| [`SCREENSHOTS.md`](SCREENSHOTS.md) | The 8 screenshots: benefit-first headlines, which screen to capture, required device sizes, Custom Product Page sets. |
-| [`APP_REVIEW_NOTES.md`](APP_REVIEW_NOTES.md) | Notes for App Review, how to test Pro in the sandbox, App Privacy answers ("Data Not Collected"), age rating guidance. |
+| [`metadata/`](metadata) | The App Store listing (English (U.S.)) and the notes for App Review. Uploaded by `[asc metadata]` and `[asc review-details]`. |
+| [`screenshots/`](screenshots) | `raw/`: screens captured by CI. `final/en-US/APP_IPHONE_67/`: where the 8 finished screenshots go for `[asc screenshots]` (step 8 below). |
+| [`event/`](event) | The "New Year Reset 2027" in-app event: `event.json`, plus the card (1920 × 1080) and details (1080 × 1920) images. |
+| [`SCREENSHOTS.md`](SCREENSHOTS.md) | The 8 screenshots, the size rules, and how the set is made. |
+| [`APP_REVIEW_NOTES.md`](APP_REVIEW_NOTES.md) | How the review notes work, the App Privacy answer ("Data Not Collected") and the age rating answers. |
+| [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) | Where the published privacy policy lives and how to keep it in sync with the app. |
 | [Feature claim check](#feature-claim-check-before-every-submission) (below) | One command per feature the listing mentions, to prove it's in the build before you submit. |
-| [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) | A privacy policy template that matches what the app does. You need a hosted policy URL to submit. |
-| [`GROWTH_PLAYBOOK.md`](GROWTH_PLAYBOOK.md) | Go-to-market plan from 0 → 1M → 100M: positioning, ASO, creators, community, PR, partnerships, pricing, paywall tests, KPIs, analytics. |
-| [`ROADMAP_100M.md`](ROADMAP_100M.md) | What the product needs beyond this repo to have a real shot at 100M users, prioritized with effort estimates. |
+| [`GROWTH_PLAYBOOK.md`](GROWTH_PLAYBOOK.md) | Go-to-market plan. It was written for a paid launch, so its pricing and paywall sections only matter if Pro is turned on. |
+| [`ROADMAP_100M.md`](ROADMAP_100M.md) | What the product needs beyond this repo, with effort estimates. |
+
+The scripts live outside this folder: `tools/asc/` (App Store Connect commands) and `tools/appstore-art/` (screenshot art).
 
 ### `metadata/` layout
 
 ```
 metadata/
-  copyright.txt              "2026 <legal name>"            (not localized)
+  copyright.txt              The copyright line                     (not localized)
   primary_category.txt       HEALTH_AND_FITNESS
   secondary_category.txt     LIFESTYLE
   review_information/
-    notes.txt                Notes for App Review, about 3,500/4,000 chars (same text as APP_REVIEW_NOTES.md)
+    notes.txt                Notes for App Review                  limit 4,000 characters, but only 3,900 are sent
   en-US/
-    name.txt                 23/30 chars   "Unhook: Quit Bad Habits"
-    subtitle.txt             30/30 chars   "Stop Smoking, Vaping, Drinking"
-    keywords.txt             99/100 bytes  comma-separated, no spaces
-    promotional_text.txt     154/170 chars  can change anytime without review
-    description.txt          about 3,400/4,000 chars
-    support_url.txt          placeholder: replace before upload
-    marketing_url.txt        placeholder: replace, or delete the file
-    privacy_url.txt          placeholder: replace before upload
+    name.txt                 "Unhook: Quit Bad Habits"             limit 30 characters
+    subtitle.txt             "Stop Smoking, Vaping, Drinking"      limit 30 characters
+    keywords.txt             comma-separated, no spaces            limit 100 bytes
+    promotional_text.txt     can change any time without review    limit 170 characters
+    description.txt                                                limit 4,000 characters
+    support_url.txt          the Notion support page
+    privacy_url.txt          the Notion privacy policy
 ```
 
-There's deliberately **no `release_notes.txt`**. Version 1.0 has no "What's New", and every feature is new to App Store users, so the v2 feature list lives in step 8 as TestFlight *What to Test* text. Create `en-US/release_notes.txt` for your first update (step 11).
+The listing is English only for now. There's no `release_notes.txt`: version 1.0 has no "What's New", and `[asc metadata]` doesn't upload release notes anyway (see [Updates after 1.0](#updates-after-10)). There's also no `marketing_url.txt` (optional: `[asc metadata]` uploads one if you add it).
 
-**Before any upload, replace every placeholder.** This command must print nothing:
+The scripts skip any file that still contains `REPLACE_ME`, so this must print nothing before an upload:
 
 ```sh
 grep -rn "REPLACE_ME" AppStore/metadata
 ```
 
-Length limits App Store Connect enforces: name 30, subtitle 30, keywords 100 **bytes** (non-Latin scripts use 2–3 bytes per character), promotional text 170, description 4,000, What's New 4,000, App Review notes 4,000. When you localize, check bytes, not characters: `printf %s "$(cat keywords.txt)" | wc -c`. fastlane strips leading and trailing whitespace from every file, so the final newline doesn't count.
+Keywords count bytes, not characters: `printf %s "$(cat AppStore/metadata/en-US/keywords.txt)" | wc -c`.
 
 ---
 
-## Publishing, step by step
+## How the automation works
 
-You need a Mac with a current Xcode (Xcode 26 or later in 2026). Apple raises the minimum SDK for App Store uploads every spring. CI also builds with Xcode 16.4 to prove the code still compiles there, but App Store Connect rejects uploads built with that older SDK, so **always archive with Xcode 26.x**. Plan on 1–2 days of setup and then 1–3 days for review.
-
-### 1. Join the Apple Developer Program
-
-- Enroll at developer.apple.com/programs ($99 per year). Choose **Organization** (needs a D-U-N-S number, free, can take a week or more) if you want a company name shown as the seller. **Individual** is faster but shows your personal name.
-- In App Store Connect → **Business**, accept the **Paid Applications Agreement** and complete banking and tax forms. **In-App Purchases won't load, even in the sandbox, until this is active.**
-- **EU Digital Services Act:** declare whether you're a *trader* (App Store Connect → Business, or the app's *Pricing and Availability*). If you charge money you're almost certainly a trader, and your address, phone and email will be shown on the EU product page. Apps without a trader declaration can't be distributed in the EU.
-- Enroll in the **App Store Small Business Program** (developer.apple.com/app-store/small-business-program). Apple's commission drops from 30% to 15% while your proceeds stay under $1M a year. Subscriptions already drop to 15% after a subscriber's first year, either way.
-
-### 2. Set your bundle identifier
-
-The repo ships with the identifier `com.brucegao.unhook`. Yours must be unique and registered to your team. Open *Unhook project → Build Settings*, search for `UNHOOK_BUNDLE_PREFIX` and follow whichever case applies:
-
-- **The setting exists** (it arrives with the widget extension). It's a project-level *User-Defined* setting that holds the app's **full** bundle ID (default `com.brucegao.unhook`). The other identifiers are derived from it: the widget extension is `$(UNHOOK_BUNDLE_PREFIX).widgets` and the tests are `$(UNHOOK_BUNDLE_PREFIX).tests`. Change it once, for example to `com.yourcompany.unhook`. Then check the App Group: the app's and the widget extension's `.entitlements` files must name the **same** group, and it must match the group identifier the code opens (search the Swift code for `group.`). If the group isn't derived from the setting, change it in all three places by hand.
-- **The setting doesn't exist.** Change `PRODUCT_BUNDLE_IDENTIFIER` on the **Unhook** target (for example `com.yourcompany.unhook`) and on **UnhookTests**.
-- In *Signing & Capabilities*, pick your **Team** for every target, with **Automatically manage signing** on. Xcode registers the App IDs, the **App Groups** capability and the provisioning profiles for you. App Groups need a paid developer account. If widgets show no data in a Debug build on your own iPhone, check whether the Debug configuration leaves the App Group entitlement out (a project can do that on purpose so a free Personal Team can still run the app). Release, TestFlight and App Store builds must include it.
-- Capabilities to check on the App IDs: **In-App Purchase** (on by default) and **App Groups** (app and widget extension, same group). Siri/App Shortcuts, Face ID and local notifications need **no** extra capability. Face ID only needs `NSFaceIDUsageDescription`, which is already set.
-
-### 3. Create the app record in App Store Connect
-
-*Apps → + → New App*:
-
-| Field | Value |
-|---|---|
-| Platform | iOS |
-| Name | `Unhook: Quit Bad Habits`. Names are unique across the store. If it's taken, try `Unhook – Quit Any Habit` or `Unhook: Quit & Sober Tracker` (both ≤ 30 characters). The home-screen name stays "Unhook" either way (`CFBundleDisplayName`). |
-| Primary language | English (U.S.) |
-| Bundle ID | The one from step 2 |
-| SKU | Any private ID, e.g. `unhook-ios` |
-| User access | Full access |
-
-Then in **App Information**:
-
-- **Category:** Primary *Health & Fitness* (matches `LSApplicationCategoryType`), secondary *Lifestyle*.
-- **Content rights:** "No, it does not contain, show, or access third-party content."
-- **Age rating:** answer the questionnaire using [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md#3-age-rating-guidance).
-- **Privacy Policy URL:** your hosted copy of [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
-
-### 4. Create the In-App Purchases
-
-The IDs must match `Store.ProductID` in `Unhook/Services/Store.swift` **exactly**. Product IDs can never be reused, even after you delete one, so type them carefully.
-
-**a) Subscription group** (*Monetization → Subscriptions → +*)
-
-- Reference name: `Unhook Pro`. Localization → display name: `Unhook Pro`.
-
-| Product ID | Type | Duration | Level in group | Suggested US price | Intro offer |
-|---|---|---|---|---|---|
-| `unhook.pro.yearly` | Auto-renewable | 1 year | **1** (top) | $29.99 | **Free trial, 1 week**, new subscribers, all territories |
-| `unhook.pro.monthly` | Auto-renewable | 1 month | **2** | $4.99 | none |
-
-- Putting yearly at a higher level than monthly makes monthly → yearly an **upgrade**, which Apple applies immediately with a prorated refund. Yearly → monthly is a downgrade that applies at the next renewal.
-- People get **one introductory offer per subscription group**, and StoreKit decides who's eligible, so past subscribers may not see the trial again. The paywall already checks `isEligibleForIntroOffer` and only shows trial wording to people who can get it. Keep it that way, and never promise "free trial" in copy that everyone sees.
-- The trial goes on yearly only. The paywall leads with it, and yearly gives the best retention.
-
-**b) Lifetime** (*Monetization → In-App Purchases → +*)
-
-| Product ID | Type | Suggested US price |
-|---|---|---|
-| `unhook.pro.lifetime` | **Non-consumable** | $49.99 |
-
-**c) For each of the three products**
-
-- Display name, 2–30 characters (e.g. "Unhook Pro Yearly"), and description, up to 45 characters (e.g. "Unlimited habits, goals, insights and icons", 43).
-- Price: pick the US price and let Apple equalize the other 174 storefronts. Then adjust key markets by hand ([GROWTH_PLAYBOOK.md → Pricing](GROWTH_PLAYBOOK.md#10-pricing-and-regional-pricing)).
-- **Review screenshot:** a screenshot of the paywall (any iPhone size).
-- **Family Sharing:** decide before launch. **It can't be turned off once it's on.** The store code already handles shared purchases. Turning it on is generous and helps word of mouth. Leaving it off protects revenue per household.
-- Status must reach **Ready to Submit**.
-
-**d) Local testing:** the shared scheme points at `Unhook.storekit` at the repository root. The file is already in the repo with the products below. If you ever recreate it in Xcode (*File → New → File → StoreKit Configuration File*), add the "Unhook Pro" subscription group with yearly (level 1, $29.99, 1-week free trial) and monthly (level 2, $4.99), plus the non-consumable lifetime ($49.99), using the same product IDs. Keep it in sync with App Store Connect, or Simulator testing will drift from production. (You can also start it with *Sync this file with an app in App Store Connect* once the products exist.)
-
-### 5. Answer App Privacy
-
-*App Privacy → Get Started → "No, we do not collect data from this app."* The full reasoning, and the list of changes that would make this answer false, is in [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md#2-app-privacy-answers-nutrition-label).
-
-### 6. Make the screenshots
-
-Follow [SCREENSHOTS.md](SCREENSHOTS.md). You need **iPhone 6.9"** (and ideally 6.5") plus **iPad 13"**, with 8 frames each.
-
-### 7. Archive and upload a build
-
-1. Set the version: `MARKETING_VERSION` (currently `1.0`) and a build number `CURRENT_PROJECT_VERSION` that increases with every upload.
-2. In Xcode choose *Any iOS Device (arm64)* → **Product → Archive** → *Distribute App → App Store Connect → Upload*.
-3. **Export compliance:** the app uses no encryption of its own (StoreKit's HTTPS is exempt), so answer "None of the algorithms mentioned above". To skip the question for every build, set `ITSAppUsesNonExemptEncryption` to `NO`. The app target generates its Info.plist, so add the build setting `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` to the Unhook target's Debug and Release configurations (in Xcode: *Unhook target → Info → App Uses Non-Exempt Encryption → NO*). If your Xcode doesn't offer that key, just answer the question in App Store Connect.
-4. Wait for processing (5–30 minutes) and fix anything in the email from App Store Connect (missing icons, privacy manifest issues, and so on).
-
-### 8. TestFlight
-
-- **Internal testing** (up to 100 people on your team): available right after processing, no review.
-- **External testing** (up to 10,000 testers via email or a public link): the first build needs a short Beta App Review, usually under a day. Use *What to Test* to steer testers ("Try SOS during a real craving", "Buy Pro with the sandbox and restore it").
-- Run at least **one week** with 20–50 real quitters before launch. Watch crashes in *Xcode → Organizer* and read every piece of feedback. This is where onboarding confusion shows up.
-
-**What to Test** text for the v2 beta (edit to match the build, max 4,000 characters):
-
-```text
-Thanks for testing Unhook! Please try:
-• Onboarding: pick a habit, set your quit date and daily cost, pick your reasons and see your one-year projection
-• SOS during a real craving, then tag what set it off
-• The recovery timeline on your habit's screen
-• A savings goal on the Today tab
-• Craving trigger insights on the Progress tab
-• The coach ("Talk to your coach" on the Today tab)
-• The Streak and Craving SOS widgets, the Siri shortcut for SOS, Face ID lock and data export
-• Unhook Pro: buy with the sandbox (you won't be charged), then delete and reinstall the app and tap Restore Purchases
-Tell us anything confusing, broken or missing. Screenshots help.
-```
-
-### 9. Upload metadata (fastlane, optional)
-
-You can paste everything by hand, or let fastlane upload this folder:
+`.github/workflows/appstore.yml` runs when you push a commit whose message names a command in square brackets. For example:
 
 ```sh
-brew install fastlane
-# Create an App Store Connect API key first (Users and Access → Integrations → App Store Connect API).
-fastlane deliver \
-  --api_key_path ./asc_api_key.json \
-  --app_identifier com.yourcompany.unhook \
-  --metadata_path ./AppStore/metadata \
-  --skip_binary_upload true \
-  --skip_screenshots true \
-  --force true
+git commit --allow-empty -m "Upload the listing [asc metadata]"
+git push
 ```
 
-- **What's New:** the kit has no `release_notes.txt` because version 1.0 has no "What's New" (current fastlane skips the file on a first version anyway). From the first update on, create `metadata/en-US/release_notes.txt` (step 11).
-- **Contact details for App Review** can go in `metadata/review_information/` as `first_name.txt`, `last_name.txt`, `phone_number.txt` and `email_address.txt`, or be typed into App Store Connect once. Personal details don't belong in a public repo, so keep those files untracked. `deliver` never sends empty values, and with no demo account files it marks sign-in as not required.
-- Keep the API key file out of git.
+- It runs on pushes to `main` and to `claude/…` branches. Watch it on GitHub under **Actions → App Store**. The logs are public, so the scripts never print secrets or phone numbers.
+- Only the newest commit of a push is read. A message that also contains `[skip ci]` runs nothing.
+- One message can hold several commands. They run in the order you write them. The one exception is `[asc build]`: it always runs last, on a macOS runner, after the other commands finish.
+- If a command fails, the log says why. An API error prints `FAILED` and the reason, and the next commands still run. A missing step (no app record yet, no version in *Prepare for Submission*, no processed build) prints a one-line message and stops the run, so the commands after it don't run. `[asc availability]` only prints "Availability not changed" and the reason. Fix the cause and push the commands that didn't finish again.
+- The App Store Connect API key is the `ASC_PRIVATE_KEY` repository secret. The key ID, issuer ID and team ID are in the workflow file.
 
-### 10. Submit for review
+The commands (from `tools/asc/asc.py` and `tools/asc/release.py`):
 
-On the version page:
+| Command | What it does |
+|---|---|
+| `[asc check]` | Checks the API key and lists the apps, the bundle IDs, and whether Unhook's app record exists. Changes nothing. |
+| `[asc register]` | Registers `com.brucegao.unhook` and `com.brucegao.unhook.widgets` and turns on App Groups for them. Safe to run again. |
+| `[asc build]` | Archives with the newest Xcode 26, signs with cloud signing and uploads to TestFlight. The build number is the date and time. Until the app record exists, it only exports the build. |
+| `[asc metadata]` | Name, subtitle, description, keywords, promotional text, support and privacy URLs, categories, copyright and content rights. It also sets the version to be released automatically once it's approved. |
+| `[asc age-rating]` | Sends the age rating answers (`AGE_RATING` in `release.py`) and prints the rating Apple calculates. |
+| `[asc review-details]` | Uploads `notes.txt`, marks sign-in as not required, and copies the review contact from Bruce Run. |
+| `[asc pricing]` | Sets the price to free. |
+| `[asc availability]` | Makes the app available in every country and region except mainland China, which needs an ICP filing first. |
+| `[asc screenshots]` | Replaces the listing's screenshots with the files in `screenshots/final/`. Needs `[asc metadata]` first. |
+| `[asc attach-build]` | Attaches the newest processed build to the version. |
+| `[asc submit]` | Submits the version for App Review. It never includes the in-app event. |
+| `[asc event]` | Creates or updates the in-app event from `event/` (text and both images). It stays a draft. |
+| `[asc submit-event]` | Submits draft in-app events for review on their own. Use it only after 1.0 is approved. |
+| `[asc status]` | Prints the version's state, the newest processed build, review submissions and the age rating. Changes nothing. |
 
-- [ ] [Feature claim check](#feature-claim-check-before-every-submission) passed for this build, and any line about a missing feature deleted
-- [ ] Build selected, screenshots uploaded for every required size
-- [ ] Description, keywords, support URL and privacy URL with no placeholders left
-- [ ] **In-App Purchases and Subscriptions:** all three products selected (first submission only)
-- [ ] App Review Information: contact details, **sign-in not required**, notes pasted from [`APP_REVIEW_NOTES.md`](APP_REVIEW_NOTES.md)
-- [ ] Release option: choose **Manually release this version** so you control launch day (Product Hunt, press, creators)
-- [ ] Optionally turn on **Phased Release** (7 days, auto-updates only) for updates after launch
+There are a few more: `[asc app]` (prints the app record and its versions), `[asc probe]` and `[asc inspect]` (read-only checks), and `[asc create-app]` (tries to create the app record through the API; Apple normally only allows that on the website).
 
-Then **Add for Review → Submit**. Most reviews finish within 24–48 hours.
+> **Never ship a build made with `[asc build-nogroups]`.** It leaves out the App Group, so its widgets can't read the app's data. `[asc attach-build]` picks the newest processed build, so if you ever upload one, push a normal `[asc build]` again before you attach.
 
-**Common rejections for this type of app, and how the kit prevents them**
+---
+
+## The launch path
+
+### Before you start
+
+- Unhook uses the same Apple Developer account as Bruce Run, so the membership is already in place. A free app doesn't need the Paid Applications Agreement, banking or tax forms.
+- If App Store Connect shows a banner asking you to accept an updated agreement, accept it first. Uploads and submissions stop until you do.
+- Your EU trader status (under the Digital Services Act) is set once for the whole account, in App Store Connect → Business. If it's missing, the app won't appear in EU countries.
+- `[asc build]` builds the commit you push it with. Make sure that's the code you want to ship, and that **iOS build & test** passed on it. That workflow runs on pull requests and on `main`; for a commit on another branch, run it by hand (*Actions → iOS build & test → Run workflow*).
+
+### Step 1. On the websites (once)
+
+1. **Create the App Group.** On developer.apple.com, go to *Certificates, Identifiers & Profiles → Identifiers*:
+   - Click **+**, choose **App Groups**, and register `group.com.brucegao.unhook` (description: "Unhook").
+   - Open the App ID `com.brucegao.unhook`, tick **App Groups**, click **Configure** (or **Edit**), select `group.com.brucegao.unhook`, then save. Do the same for `com.brucegao.unhook.widgets`.
+   - Without this, the build can't include the App Group and the widgets can't read the app's data. If either App ID is missing, push `[asc register]` first.
+2. **Create the app record.** In App Store Connect, go to *Apps → + → New App*:
+
+   | Field | Value |
+   |---|---|
+   | Platform | iOS |
+   | Name | `Unhook: Quit Bad Habits`. If it's taken, pick another name of 30 characters or fewer and put it in `metadata/en-US/name.txt`. The home-screen name stays "Unhook" either way. |
+   | Primary language | English (U.S.) |
+   | Bundle ID | `com.brucegao.unhook` |
+   | SKU | `unhook` |
+   | User access | Full access |
+
+   This also creates version 1.0, which the commands below fill in.
+3. **Answer App Privacy.** In your app, open *App Privacy → Get Started*, answer **"No, we do not collect data from this app"**, save, then click **Publish**. The product page will show "Data Not Collected". The reasons are in [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md#2-app-privacy-answers-nutrition-label).
+4. **Publish the two Notion pages**, the privacy policy and the support page. In Notion: **Share → Publish → Publish**. Then open both URLs (from `metadata/en-US/privacy_url.txt` and `support_url.txt`) in a private browser window and check that they load without signing in. App Review opens them. [PRIVACY_POLICY.md](PRIVACY_POLICY.md) lists every place the URLs appear, in case one changes.
+
+### Step 2. Upload a build and test it
+
+5. Push **`[asc check]`**. The log should say the key works, both bundle IDs are registered, and "Unhook app record: exists".
+6. Push **`[asc build]`**. It can take up to an hour. Then wait for Apple's email saying the build has finished processing, or push `[asc status]` until "Latest processed build" shows it.
+7. **Test it on your iPhone with TestFlight.** In App Store Connect → TestFlight, add yourself to an internal testing group, then install the build from the TestFlight app. Check that the widgets show your real streak (that proves the App Group works), and try SOS, the coach, the Face ID lock and data export. To let friends test too, add an external group: its first build needs a short Beta App Review, usually under a day.
+
+### Step 3. Make the screenshots
+
+8. Only the **iPhone 6.9"** size is needed (1320 × 2868 pixels), because Unhook is iPhone-only. No iPad screenshots. [SCREENSHOTS.md](SCREENSHOTS.md) has the 8 frames and the rules.
+   - Push a commit with **`[screenshots full]`** in the message (or run *Actions → Screenshots → Run workflow* with "Also commit full-resolution screenshots" ticked). CI captures the app and commits the images to `screenshots/raw/full/`. Pull them with `git pull`.
+   - Compose the set with `tools/appstore-art/` (commands in [its README](../tools/appstore-art/README.md)), and copy `tools/appstore-art/out/01.png` … `08.png` to `screenshots/final/en-US/APP_IPHONE_67/`. The number sets the order.
+   - Look at all 8, then commit and push them. CI uploads what's in the repository, not what's on your computer.
+
+### Step 4. Fill in the listing, in this order
+
+| # | Push | The log should say |
+|---|---|---|
+| 9 | `[asc metadata]` | Which fields it updated, the categories, and content rights. |
+| 10 | `[asc age-rating]` | The calculated age rating (about 13+). |
+| 11 | `[asc review-details]` | "contact copied from Bruce Run". If it says "no contact found", type the contact details on the version page. |
+| 12 | `[asc pricing]` | "Price: free". |
+| 13 | `[asc availability]` | How many territories the app is available in. |
+| 14 | `[asc screenshots]` | "en-US APP_IPHONE_67: uploaded 8 screenshots". |
+
+You can put all six in one commit message, in this order. For example:
+
+```sh
+git commit --allow-empty -m "Fill in the listing [asc metadata] [asc age-rating] [asc review-details] [asc pricing] [asc availability] [asc screenshots]"
+git push
+```
+
+### Step 5. Attach the build and submit
+
+15. Push **`[asc attach-build]`**. It attaches the newest processed build to version 1.0.
+16. Open the version page in App Store Connect and read it top to bottom: screenshots, text, build, App Review Information and the release option.
+    - `[asc metadata]` sets the release option to release automatically once the app is approved. To pick the launch day yourself, switch it to **Manually release this version** here. Do it again after any later `[asc metadata]`, which sets it back.
+17. Run the [feature claim check](#feature-claim-check-before-every-submission) on the commit you built. Then follow the QUICK TEST in `metadata/review_information/notes.txt` on the TestFlight build, exactly as written.
+18. Push **`[asc submit]`**. Push `[asc status]` any time to see where the review is. Most reviews take a day or two.
+    - If App Review rejects the app, the reason is in App Store Connect. Fix it, upload and attach a new build if the code changed (steps 6 and 15), and resubmit from the version page.
+
+### Step 6. After approval
+
+19. With the automatic release option, Unhook goes live as soon as it's approved. It can take up to a day to show up in search. (If you chose manual release, click **Release This Version**.)
+20. **The in-app event.** Push **`[asc event]`** to create or update "New Year Reset 2027" as a draft. (You can also do this earlier: it's never sent to review with the app.) Then push **`[asc submit-event]`** to send it for review on its own. Do this well before the publish date in `event/event.json` (December 18, 2026). The event opens the 30-Day Reset through `unhook://challenge/reset30`.
+21. Put Unhook's numeric Apple ID (App Store Connect → App Information) in `FounderLinks.appStoreID` in `Unhook/Views/Founder/FounderComponents.swift`. Then "Rate Unhook" in Settings opens the review page instead of the system prompt. It ships with the next update.
+22. Follow the launch timeline in [GROWTH_PLAYBOOK.md](GROWTH_PLAYBOOK.md#2-stage-plan-0--1m--100m), set up [Custom Product Pages](SCREENSHOTS.md#per-habit-sets-for-custom-product-pages), and reply to reviews in App Store Connect.
+
+### Updates after 1.0
+
+- Create the new version on the website first (for example 1.1, with the **+** next to *iOS App* on your app's page). The commands only edit a version that's already in *Prepare for Submission*; they don't create one.
+- Change `MARKETING_VERSION` to the same number in every target, so the widget's version matches the app's. CI sets the build number.
+- Write "What's New" on the version page. `[asc metadata]` doesn't upload release notes yet. Keep them warm and specific, for example "Fixed a bug where the streak could show the wrong day after a time-zone change".
+- Then repeat: `[asc build]`, a TestFlight check, the listing commands for anything that changed, `[asc attach-build]`, the feature claim check and `[asc submit]`.
+- You can turn on **Phased Release** on the version page, so an update reaches people over 7 days.
+
+---
+
+## Common rejections, and how the kit prevents them
 
 | Guideline | Risk | Prevention |
 |---|---|---|
-| 3.1.2 | Paywall missing price, period, trial terms, or Terms/Privacy links | Paywall checklist in APP_REVIEW_NOTES.md; Terms of Use and Privacy lines in `description.txt` |
-| 2.1 | IAPs not loading during review | Paid Applications Agreement active; IAPs submitted with the version |
-| 1.4.1 | Health claims | Recovery timeline cites sources and says "not medical advice"; copy never promises outcomes |
-| 2.3.1 / 2.3.7 | Metadata describes missing features, or uses trademarks in keywords | Feature claim check before submitting; no third-party brand names in the description or keywords (no "NoFap", "Dry January", competitor names) |
-| 5.1.1 | Privacy policy missing or not reachable | PRIVACY_POLICY.md hosted and linked from the listing and the paywall |
-
-### 11. Launch day and after
-
-Follow the launch timeline in [GROWTH_PLAYBOOK.md](GROWTH_PLAYBOOK.md#2-stage-plan-0--1m--100m). For every update: bump `MARKETING_VERSION` and the build number, write `metadata/en-US/release_notes.txt` with only what changed in that version (warm and specific, for example "Fixed a bug where the streak could show the wrong day after a time-zone change"), refresh `promotional_text.txt` (it can change without review), re-run the feature claim check, and reply to new reviews in App Store Connect.
+| 2.1 | A crash, a dead link or a broken feature during review | Test the TestFlight build on a real iPhone, publish both Notion pages, and follow the QUICK TEST before submitting |
+| 2.3.1, 2.3.7 | The listing describes something that isn't in the build, or uses other brands in keywords | The feature claim check below; no third-party brand names in the description or keywords (no "NoFap", "Dry January" or competitor names) |
+| 1.4.1 | Health claims | The smoking timeline cites the WHO and NHS; every timeline says "not medical advice" and suggests a doctor; the copy never promises outcomes |
+| 1.1, 1.2 | The AI coach says something harmful, with no way to report it | Apple's guardrails, fixed crisis and emergency replies, and "Report this reply" on every coach reply, all explained in the notes |
+| 5.1.1 | Privacy policy missing or not reachable | The Notion policy is published and linked from the listing and Settings, and the in-app policy matches it |
 
 ---
 
 ## Feature claim check (before every submission)
 
-The listing, the review notes and the screenshot plan mention the features below. Several were still being built when this kit was written. Run these from the repository root against the commit you're archiving. Each command must print at least one line (or the number shown). If one prints nothing, the feature isn't in the build: **delete every mention of it** in `metadata/en-US/description.txt`, `metadata/review_information/notes.txt` (and its copy in APP_REVIEW_NOTES.md), SCREENSHOTS.md and the TestFlight text before you submit. Guideline 2.3.1 rejections for missing features are common and avoidable.
-
-| # | Claim | Where it's mentioned |
-|---|---|---|
-| 1 | "Streak" and "Craving SOS" widgets (Home Screen and Lock Screen) | description, review notes, screenshot 8 |
-| 2 | Siri and Shortcuts (opening SOS) | description, review notes |
-| 3 | Face ID lock | description, review notes, privacy policy, screenshot 8 |
-| 4 | Data export | description, review notes, privacy policy |
-| 5 | Full-screen milestone celebrations | description, screenshot 6 |
-| 6 | Rating prompt after celebrations, and no other prompts | GROWTH_PLAYBOOK.md §3 |
-| 7 | "Talk to your coach" on the Today tab | review notes, screenshot 7 |
-| 8 | Settings > Unhook Pro, Settings > App Icon | review notes |
-| 9 | 13 milestones, 12 achievements | description |
-| 10 | Free plan: 1 habit and 1 active savings goal | description, review notes |
-| 11 | Coach runs on the device, no network except StoreKit | description, review notes, privacy policy |
+The listing, the review notes and the screenshots name the features below. Run these from the repository root against the commit you're shipping. Each command must print at least one line, or the number shown. If one prints nothing, the feature isn't in the build: **delete every mention of it** in `metadata/en-US/description.txt`, `metadata/en-US/promotional_text.txt`, `metadata/review_information/notes.txt` and the screenshots before you submit. Rejections for missing features (Guideline 2.3.1) are common and avoidable.
 
 ```sh
-# 1  widgets (prints the two widget names)
-grep -rn -e 'configurationDisplayName("Streak")' -e 'configurationDisplayName("Craving SOS")' --include='*.swift' .
-# 2  Siri / App Shortcuts
-grep -rn "AppShortcutsProvider" --include='*.swift' .
-# 3  Face ID lock
+# 1  widgets (description): prints the two widget names
+grep -rn -e 'configurationDisplayName("Streak")' -e 'configurationDisplayName("Craving SOS")' UnhookWidgets
+# 2  Siri phrases quoted in the description
+grep -n -e '"Open SOS in' -e '"Check my streak in' Unhook/Intents/UnhookShortcuts.swift
+# 3  Face ID lock (description, notes, privacy policy)
 grep -rn "LAContext" --include='*.swift' Unhook
-# 4  data export: find the row, then tap it in the app and check that it produces a file
-grep -rni "export" --include='*.swift' Unhook/Views/Settings
-# 5  celebrations (both names must appear as declarations)
-grep -rnE "(struct|enum|class) (MilestoneCelebrationView|CelebrationCenter)" --include='*.swift' Unhook
-# 6  rating prompt
-grep -rnE "(struct|enum|class) ReviewPrompter" --include='*.swift' Unhook
-# 7  coach entry on the Today tab
+# 4  JSON and CSV export (description, privacy policy)
+grep -n -e "func exportJSON" -e "csvHeader =" Unhook/Services/DataExporter.swift
+# 5  13 milestones and 12 ranks from Midnight to Legend: prints 13, then 12, then the two rank names
+#    (description, promotional text, screenshots 3 and 7)
+grep -c "Milestone(seconds:" Shared/Milestone.swift
+grep -c "Rank(level:" Unhook/Models/Engagement/Rank.swift
+grep -n -e '"Midnight"' -e '"Legend"' Unhook/Models/Engagement/Rank.swift
+# 6  three daily missions and the 30-Day Reset with its link (description, notes, screenshots 3 and 4, the event)
+grep -n "missionsPerDay = 3" Unhook/Models/Engagement/DailyMissions.swift
+grep -n "length = 30" Unhook/Models/Engagement/ResetChallenge.swift
+grep -n 'case "challenge"' Unhook/App/RootView.swift
+# 7  milestone and rank-up celebrations, and the rating prompt (description, screenshot 7, GROWTH_PLAYBOOK.md)
+grep -rnE "(struct|enum|class) (MilestoneCelebrationView|CelebrationCenter|RankUpObserver|ReviewPrompter)" --include='*.swift' Unhook
+# 8  "Talk to your coach" on Today and "Report this reply" (notes, screenshot 6)
 grep -rn "CoachEntryCard(" --include='*.swift' Unhook/Views/Home
-# 8  Settings rows (then open Settings and check the row titles match the notes word for word)
-grep -rn -e "showPaywall(.settings)" -e "setAlternateIconName(" --include='*.swift' Unhook
-# 9  must print 13, then 12
-grep -c "Milestone(seconds:" Unhook/Models/Milestone.swift
-grep -c "Achievement(id:" Unhook/Models/Achievement.swift
-# 10 must show "= 1" twice
-grep -n "static let free" Unhook/Models/Monetization.swift
-# 11 must list only the helpline, Terms of Use and Apple privacy links, and no URLSession
-grep -rnE "URLSession|https?://" --include='*.swift' Unhook
+grep -rn 'Button("Report this reply"' --include='*.swift' Unhook/Views/Coach
+# 9  four app icons: three alternates plus the main one (description)
+grep -n "ALTERNATE_APPICON_NAMES" Unhook.xcodeproj/project.pbxproj
+# 10 the founder page in Settings (description, notes)
+grep -rn 'Text("Meet the founder")' --include='*.swift' Unhook/Views/Settings
+# 11 recovery timeline sources and the alcohol warning (description, notes)
+grep -n "WHO and the NHS" Unhook/Models/RecoveryTimeline.swift
+grep -rn "WithdrawalCaution()" --include='*.swift' Unhook/Views
+# 12 free, nothing to buy (description, promotional text, notes, privacy policy)
+grep -n "isProEnabled = false" Unhook/Models/Monetization.swift
+# 13 nothing leaves the phone: only fixed links, and no URLSession (description, notes, privacy policy)
+grep -rnE "URLSession|https?://" --include='*.swift' Unhook Shared UnhookWidgets
 ```
 
-Two checks need App Store Connect rather than the code: the yearly plan's introductory offer is a 1-week free trial (and `Unhook.storekit` matches), and the UNHOOK PRO list in the description still matches the paywall's benefits. If anything else becomes Pro-only (the coach or the widgets, for example), add it to that list.
+Check 13 should list only the helpline, support and privacy pages, Apple's privacy and Terms of Use pages (the Terms link is on the dormant paywall), the founder's Instagram and website, and App Store links. Anything else needs a line in the privacy policy, and maybe new App Privacy answers.
 
-Also open the build and walk through the review notes' QUICK TEST exactly as written. Button names change during development, and App Review follows the notes literally.
+Also open the build and walk through the QUICK TEST in `notes.txt` exactly as written. Button names change during development, and App Review follows the notes literally.
+
+---
+
+## Appendix: if you turn on Unhook Pro later
+
+Unhook Pro (yearly, monthly and lifetime) is built but switched off. Turning it on is a separate release with its own review.
+
+1. **The switch.** Set `Monetization.isProEnabled = true` in `Unhook/Models/Monetization.swift`. It's a constant, so Pro can only come on in a new build that App Review sees. Keep it that way: never turn it on from a server or a hidden setting (Guideline 2.3.1 doesn't allow hidden or dormant features).
+2. **The paywall's promises.** The paywall lists "Unlimited habits", "Full craving & trigger insights", "Unlimited savings goals" and "Exclusive app icons" (`PaywallBenefit` in `Unhook/Views/Paywall/PaywallContent.swift`). In the current code only extra habits and extra savings goals need Pro; insights and app icons are free for everyone. The "Upgrade to Pro" row in Settings promises "deeper insights" too (`SettingsView.swift`). Make both match what Pro really unlocks before you ship.
+3. **Agreements.** Sign the **Paid Applications Agreement** and complete the banking and tax forms (App Store Connect → Business). Products don't load, even in the sandbox, until it's active. Selling Pro probably makes you a "trader" under the EU Digital Services Act, so review your trader status there too. The **App Store Small Business Program** lowers Apple's commission from 30% to 15%.
+4. **The products.** The IDs must match `Store.ProductID` in `Unhook/Services/Store.swift` and `Unhook.storekit` exactly. A product ID can never be reused, even after you delete it.
+
+   | Product ID | Type | US price | Notes |
+   |---|---|---|---|
+   | `unhook.pro.yearly` | Auto-renewable, 1 year | $29.99 | Subscription group "Unhook Pro", level 1, 1-week free trial for new subscribers |
+   | `unhook.pro.monthly` | Auto-renewable, 1 month | $4.99 | Same group, level 2 |
+   | `unhook.pro.lifetime` | Non-consumable | $49.99 | |
+
+   Each product needs a display name, a description, a price and a review screenshot of the paywall. Decide on Family Sharing before you turn it on: once it's on, it can't be turned off. For the first version with purchases, select the products on the version page before you submit.
+5. **Testing.** The shared scheme uses `Unhook.storekit`, so purchases work in the Simulator (*Debug → StoreKit → Manage Transactions* to refund or expire them). TestFlight builds use the sandbox, and nobody is charged. Check that prices load on a real iPhone, that the trial only shows to people who can get it, that Restore Purchases works after reinstalling, and that SOS, the crisis link, streaks and the recovery timeline stay free.
+6. **The words.** The privacy policy (in the app and on Notion), the description, the promotional text, the review notes, the founder page and the first onboarding screen ("Free · Private · No account needed") all say Unhook is free or has no in-app purchases. Update every one before you submit. Add a "Terms of Use:" line with Apple's standard license link (the one the paywall uses) to the description. `[asc pricing]` stays as it is: the download stays free. [APP_REVIEW_NOTES.md](APP_REVIEW_NOTES.md#appendix-if-you-turn-on-unhook-pro-later) has a Pro section for the notes and the sandbox checks.

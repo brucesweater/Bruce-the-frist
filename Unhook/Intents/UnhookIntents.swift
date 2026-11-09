@@ -65,8 +65,9 @@ struct StreakStatusIntent: AppIntent {
     static var title: LocalizedStringResource = "Check My Streak"
     static var description = IntentDescription("Tells you how long you've been free from your habit.")
     static var openAppWhenRun: Bool = false
-    /// The answer names the habit out loud, so Siri must not give it on a locked iPhone. Habit names can be
-    /// sensitive, and the app's Face ID lock promises nobody else sees them.
+    /// The answer can name the habit out loud, so Siri must not give it on a locked iPhone. That only covers the
+    /// iPhone's own lock: the intent runs without opening the app, so the app lock never prompts. While the app
+    /// lock is on, the answer leaves the habit's name out, like widgets and milestone alerts do.
     static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     @MainActor
@@ -76,7 +77,8 @@ struct StreakStatusIntent: AppIntent {
     }
 
     /// A spoken summary of the longest current streak, or a friendly nudge when nothing is tracked yet.
-    static func status(for habits: [Habit], now: Date = .now) -> LocalizedStringResource {
+    /// With `hidesName` (the app lock setting, by default) it leaves out what the user is quitting.
+    static func status(for habits: [Habit], now: Date = .now, hidesName: Bool = AppLockSettings.isEnabled) -> LocalizedStringResource {
         var longest: (name: String, streak: TimeInterval)?
         for habit in habits {
             let streak = habit.stats(at: now).currentStreak
@@ -89,7 +91,13 @@ struct StreakStatusIntent: AppIntent {
 
         let duration = spokenDuration(winner.streak)
         if let next = Milestone.next(after: winner.streak) {
+            if hidesName {
+                return "You've been free for \(duration). Next up: \(next.title). Keep going!"
+            }
             return "You've been free from \(winner.name) for \(duration). Next up: \(next.title). Keep going!"
+        }
+        if hidesName {
+            return "You've been free for \(duration). Every milestone unlocked. Legend!"
         }
         return "You've been free from \(winner.name) for \(duration). Every milestone unlocked. Legend!"
     }

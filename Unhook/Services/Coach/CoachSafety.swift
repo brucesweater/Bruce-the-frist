@@ -26,7 +26,7 @@ enum CoachSafety {
         "im in danger", "i am in danger", "in immediate danger",
     ]
 
-    /// Crisis phrases in the other languages Unhook ships in. Checked as plain substrings of the case- and
+    /// Crisis phrases in other languages people may write in. Checked as plain substrings of the case- and
     /// accent-folded message, because Chinese, Japanese and Thai don't separate words with spaces. Kept short
     /// and specific, and erring toward showing help: a false alarm costs a helpline banner, a miss costs far more.
     static let multilingualCrisisPhrases: [String] = [

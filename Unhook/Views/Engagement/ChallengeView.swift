@@ -542,7 +542,15 @@ private struct ChallengeFinishedSection: View {
     let onRestart: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var appeared = false
+
+    /// Side by side, or stacked at accessibility sizes so the labels have room.
+    private var statsLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -558,7 +566,7 @@ private struct ChallengeFinishedSection: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 12) {
+            statsLayout {
                 StatTile(title: "Finished", value: finishedText, systemImage: "calendar", tint: Palette.sky)
                 StatTile(title: "XP earned", value: xpText, systemImage: "sparkles", tint: Palette.sun)
             }

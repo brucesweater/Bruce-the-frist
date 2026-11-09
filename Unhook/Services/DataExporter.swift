@@ -7,8 +7,9 @@ import SwiftData
 /// Everything happens on device. Files are written to the temporary directory and only leave the device
 /// if the user shares them.
 enum DataExporter {
-    /// Bumped whenever the JSON layout changes in a way readers need to know about.
-    static let formatVersion = 1
+    /// Bumped whenever the JSON layout changes in a way readers need to know about. Format 2 added mission check-offs
+    /// and 30-Day Reset runs.
+    static let formatVersion = 2
     static let csvHeader = "date,type,habit,detail"
 
     private static let filePrefix = "Unhook-Export-"
@@ -27,6 +28,12 @@ enum DataExporter {
         var unassignedUrges: [UrgeRecord]
         var pledges: [PledgeRecord]
         var savingsGoals: [SavingsGoalRecord]
+        /// Daily missions checked off by hand. Missions that complete on their own (taking the pledge, beating a
+        /// craving with SOS) are read from `pledges` and the cravings instead, so they only appear here when checked
+        /// manually. Nil in format-1 files, which don't have it.
+        var missionCompletions: [MissionCompletionRecord]?
+        /// 30-Day Reset runs, including finished and left ones. Nil in format-1 files, which don't have it.
+        var challengeRuns: [ChallengeRunRecord]?
     }
 
     struct HabitRecord: Codable, Equatable {
@@ -152,6 +159,43 @@ enum DataExporter {
         }
     }
 
+    struct MissionCompletionRecord: Codable, Equatable {
+        /// The date the mission was for, saved without a time zone: 00:00 UTC on that date.
+        let day: Date
+        /// `Mission.id`, a stable keyword such as "walk".
+        let missionID: String
+        let completedAt: Date
+
+        init(_ completion: MissionCompletion) {
+            day = completion.day
+            missionID = completion.missionID
+            completedAt = completion.completedAt
+        }
+    }
+
+    struct ChallengeRunRecord: Codable, Equatable {
+        /// `ResetChallenge.id` ("reset30") for the 30-Day Reset.
+        let challengeID: String
+        /// The run's first day, saved without a time zone: 00:00 UTC on that date.
+        let startDay: Date
+        /// The challenge days (1-based) the user has completed, in order.
+        let completedDays: [Int]
+        let joinedAt: Date
+        /// Set once every day was complete.
+        let finishedAt: Date?
+        /// When the user left the run before finishing it.
+        let leftAt: Date?
+
+        init(_ run: ChallengeProgress) {
+            challengeID = run.challengeID
+            startDay = run.startDay
+            completedDays = Set(run.completedDays).sorted()
+            joinedAt = run.joinedAt
+            finishedAt = run.finishedAt
+            leftAt = run.leftAt
+        }
+    }
+
     /// Reads everything from `context` (including unsaved changes) into an archive.
     static func makeArchive(context: ModelContext, now: Date = .now) throws -> Archive {
         let habits = try context.fetch(FetchDescriptor<Habit>(
@@ -161,6 +205,12 @@ enum DataExporter {
         let pledges = try context.fetch(FetchDescriptor<Pledge>(sortBy: [SortDescriptor(\Pledge.day)]))
         let goals = try context.fetch(FetchDescriptor<SavingsGoal>(
             sortBy: [SortDescriptor(\SavingsGoal.sortIndex), SortDescriptor(\SavingsGoal.createdAt)]
+        ))
+        let completions = try context.fetch(FetchDescriptor<MissionCompletion>(
+            sortBy: [SortDescriptor(\MissionCompletion.day), SortDescriptor(\MissionCompletion.completedAt)]
+        ))
+        let runs = try context.fetch(FetchDescriptor<ChallengeProgress>(
+            sortBy: [SortDescriptor(\ChallengeProgress.joinedAt)]
         ))
 
         // Matched by identity rather than `urge.habit`, so the split doesn't depend on when the inverse
@@ -182,7 +232,9 @@ enum DataExporter {
                 .filter { !assignedUrges.contains(ObjectIdentifier($0)) }
                 .map { UrgeRecord($0) },
             pledges: pledges.map { PledgeRecord($0) },
-            savingsGoals: goals.map { SavingsGoalRecord($0) }
+            savingsGoals: goals.map { SavingsGoalRecord($0) },
+            missionCompletions: completions.map { MissionCompletionRecord($0) },
+            challengeRuns: runs.map { ChallengeRunRecord($0) }
         )
     }
 
@@ -209,8 +261,9 @@ enum DataExporter {
 
     // MARK: CSV
 
-    /// A timeline with one row per event (habit added, slip, craving, pledge, goal added or bought), oldest
-    /// first: `date,type,habit,detail`. Dates are ISO 8601 in `timeZone`.
+    /// A timeline with one row per event (habit added, slip, craving, pledge, goal added or bought, mission checked
+    /// off, 30-Day Reset joined, finished or left), oldest first: `date,type,habit,detail`. Dates are ISO 8601 in
+    /// `timeZone`.
     ///
     /// This is a data format, so the `type` values and the `detail` labels are stable English keywords
     /// rather than localized text.
@@ -269,6 +322,23 @@ enum DataExporter {
             events.append(TimelineEvent(date: goal.createdAt, type: "goal_added", habit: "", detail: detail))
             if let redeemedAt = goal.redeemedAt {
                 events.append(TimelineEvent(date: redeemedAt, type: "goal_redeemed", habit: "", detail: detail))
+            }
+        }
+        for mission in archive.missionCompletions ?? [] {
+            let detail = "mission: \(mission.missionID)"
+            events.append(TimelineEvent(date: mission.completedAt, type: "mission_completed", habit: "", detail: detail))
+        }
+        // A run's steps have no dates of their own, so each of its rows lists the days done.
+        for run in archive.challengeRuns ?? [] {
+            let days = run.completedDays.map { String($0) }.joined(separator: " ")
+            let parts: [String?] = ["challenge: \(run.challengeID)", days.isEmpty ? nil : "days done: \(days)"]
+            let detail = joined(parts)
+            events.append(TimelineEvent(date: run.joinedAt, type: "challenge_joined", habit: "", detail: detail))
+            if let finishedAt = run.finishedAt {
+                events.append(TimelineEvent(date: finishedAt, type: "challenge_finished", habit: "", detail: detail))
+            }
+            if let leftAt = run.leftAt {
+                events.append(TimelineEvent(date: leftAt, type: "challenge_left", habit: "", detail: detail))
             }
         }
         // Oldest first; events at the same moment keep the order above.

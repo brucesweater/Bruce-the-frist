@@ -140,6 +140,8 @@ struct DataExporterTests {
         #expect(archive.unassignedUrges.isEmpty)
         #expect(archive.pledges.isEmpty)
         #expect(archive.savingsGoals.isEmpty)
+        #expect(archive.missionCompletions?.isEmpty == true)
+        #expect(archive.challengeRuns?.isEmpty == true)
         let csv = try DataExporter.exportCSV(context: context)
         #expect(csv == DataExporter.csvHeader + "\r\n")
     }
@@ -221,6 +223,82 @@ struct DataExporterTests {
         #expect(DataExporter.csvField("@home") == "'@home")
         #expect(DataExporter.csvField("=A1,B1") == "\"'=A1,B1\"")
         #expect(DataExporter.csvField("a=b") == "a=b")
+    }
+
+    // MARK: Missions and the 30-Day Reset
+
+    @Test func missionsAndResetRunsAreExported() throws {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        // Stored days are 00:00 UTC on their date. A mission checked off this morning, and a Reset that started four
+        // days ago and was left yesterday with days 1, 2 and 4 done.
+        let today = Self.now.addingTimeInterval(-12 * 3_600)
+        let startDay = today.addingTimeInterval(-4 * Self.day)
+        let checkedAt = Self.now.addingTimeInterval(-3_600)
+        let joinedAt = startDay.addingTimeInterval(9 * 3_600)
+        let leftAt = Self.now.addingTimeInterval(-Self.day)
+        context.insert(MissionCompletion(day: today, missionID: "walk", completedAt: checkedAt))
+        let progress = ChallengeProgress(challengeID: ResetChallenge.id, startDay: startDay)
+        // Set by hand, because the initializer stamps the current time.
+        progress.joinedAt = joinedAt
+        progress.completedDays = [1, 2, 4]
+        progress.leftAt = leftAt
+        context.insert(progress)
+        try context.save()
+
+        let data = try DataExporter.exportJSON(context: context, now: Self.now)
+        let text = try #require(String(data: data, encoding: .utf8))
+        // Stored days are exported as they are stored.
+        #expect(text.contains("2026-10-24T00:00:00Z"))
+        #expect(text.contains("2026-10-20T00:00:00Z"))
+
+        let archive = try DataExporter.decodeArchive(from: data)
+        let missions = try #require(archive.missionCompletions)
+        let runs = try #require(archive.challengeRuns)
+        #expect(missions.count == 1)
+        #expect(runs.count == 1)
+        let mission = try #require(missions.first)
+        #expect(mission.day == today)
+        #expect(mission.missionID == "walk")
+        #expect(mission.completedAt == checkedAt)
+        let run = try #require(runs.first)
+        #expect(run.challengeID == ResetChallenge.id)
+        #expect(run.startDay == startDay)
+        #expect(run.completedDays == [1, 2, 4])
+        #expect(run.joinedAt == joinedAt)
+        #expect(run.finishedAt == nil)
+        #expect(run.leftAt == leftAt)
+
+        let csv = try DataExporter.exportCSV(context: context, timeZone: Self.timeZone("UTC"))
+        let expected = [
+            DataExporter.csvHeader,
+            "2026-10-20T09:00:00Z,challenge_joined,,challenge: reset30; days done: 1 2 4",
+            "2026-10-23T12:00:00Z,challenge_left,,challenge: reset30; days done: 1 2 4",
+            "2026-10-24T11:00:00Z,mission_completed,,mission: walk",
+        ]
+        #expect(csv == expected.joined(separator: "\r\n") + "\r\n")
+    }
+
+    @Test func formatOneFilesStillDecode() throws {
+        // Written before mission check-offs and Reset runs were part of the export.
+        let json = """
+        {
+          "appVersion" : "1.0",
+          "currencyCode" : "USD",
+          "exportedAt" : "2026-10-24T12:00:00Z",
+          "formatVersion" : 1,
+          "habits" : [],
+          "pledges" : [],
+          "savingsGoals" : [],
+          "unassignedUrges" : []
+        }
+        """
+        let archive = try DataExporter.decodeArchive(from: Data(json.utf8))
+
+        #expect(archive.formatVersion == 1)
+        #expect(archive.missionCompletions == nil)
+        #expect(archive.challengeRuns == nil)
+        #expect(DataExporter.csv(for: archive) == DataExporter.csvHeader + "\r\n")
     }
 
     // MARK: Files

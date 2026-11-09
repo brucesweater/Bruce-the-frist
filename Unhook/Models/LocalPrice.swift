@@ -22,6 +22,13 @@ enum LocalPrice {
         return roundedToTwoSignificantDigits(usd * effectiveRate)
     }
 
+    /// `usd` in the user's currency for thresholds such as the money achievements. Same rough rates as
+    /// `suggested`, but an unknown currency keeps `usd` as it is, so a threshold never drops to 0.
+    static func threshold(fromUSD usd: Double, currencyCode: String) -> Double {
+        let local = suggested(fromUSD: usd, currencyCode: currencyCode)
+        return local > 0 ? local : usd
+    }
+
     static func roundedToTwoSignificantDigits(_ value: Double) -> Double {
         guard value.isFinite, value > 0 else { return 0 }
         let exponent = Int(floor(log10(value))) - 1

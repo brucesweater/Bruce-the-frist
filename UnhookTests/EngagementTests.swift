@@ -256,9 +256,28 @@ struct EngagementIntentTests {
         context.insert(sugar)
         context.insert(smoking)
 
-        let message = String(localized: StreakStatusIntent.status(for: [sugar, smoking], now: Self.now))
+        let message = String(localized: StreakStatusIntent.status(for: [sugar, smoking], now: Self.now, hidesName: false))
         #expect(message.contains("Smoking"))
         #expect(!message.contains("Sugar"))
+    }
+
+    @Test func streakStatusHidesTheNameWithTheAppLockOn() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let smoking = Habit(name: "Smoking", emoji: "🚬", theme: .fire, streakStart: Self.now.addingTimeInterval(-12 * Self.day - 4 * 3_600))
+        let gambling = Habit(name: "Gambling", emoji: "🎰", theme: .gold, streakStart: Self.now.addingTimeInterval(-2_000 * Self.day))
+        context.insert(smoking)
+        context.insert(gambling)
+
+        // A milestone still ahead.
+        let next = String(localized: StreakStatusIntent.status(for: [smoking], now: Self.now, hidesName: true))
+        #expect(!next.contains("Smoking"))
+        #expect(next.contains("12"))
+
+        // Every milestone reached.
+        let legend = String(localized: StreakStatusIntent.status(for: [gambling], now: Self.now, hidesName: true))
+        #expect(!legend.contains("Gambling"))
+        #expect(legend.contains(StreakStatusIntent.spokenDuration(2_000 * Self.day)))
     }
 
     @Test func streakStatusIsFriendlyWithoutHabits() {

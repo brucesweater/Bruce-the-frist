@@ -83,14 +83,19 @@ struct InsightsView: View {
     private func weekSection(_ cleanDays: CleanDays, now: Date) -> some View {
         let beaten = CleanDays.count(urges.filter(\.resisted).map(\.date), inLast: 7, now: now)
         let pledged = CleanDays.count(pledges.map { StoredDay.localStart(of: $0.day) }, inLast: 7, now: now)
+        // Three across leaves each label about 80 pt, so from xxLarge text "CRAVINGS BEATEN" would break mid-word.
+        // Stack the tiles at those sizes instead.
+        let stacked = dynamicTypeSize >= .xxLarge
+        let layout = stacked ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "This week", systemImage: "calendar", tint: Palette.amber, trailing: Text("Last 7 days"))
-            HStack(spacing: 10) {
+            layout {
                 InsightsWeekTile(title: "Clean days", value: cleanDays.cleanDays(inLast: 7), systemImage: "flame.fill", tint: Palette.streak)
                 InsightsWeekTile(title: "Cravings beaten", value: beaten, systemImage: "shield.lefthalf.filled", tint: Palette.cravings)
                 InsightsWeekTile(title: "Pledges", value: pledged, systemImage: "hand.raised.fill", tint: Palette.celebrate)
             }
-            .fixedSize(horizontal: false, vertical: true)
+            // Equal tile heights only matter side by side.
+            .fixedSize(horizontal: false, vertical: !stacked)
         }
     }
 
@@ -112,6 +117,7 @@ struct InsightsView: View {
             bestStreak: totals.bestStreak,
             cravingsBeaten: urges.filter(\.resisted).count,
             moneySaved: totals.moneySaved,
+            currencyCode: currencyCode,
             pledgeStreak: StreakCalculator.consecutiveDays(pledges.map { StoredDay.localStart(of: $0.day) }, now: now),
             totalPledges: pledges.count
         )
@@ -119,12 +125,19 @@ struct InsightsView: View {
     }
 
     private func achievementsSection(_ achievements: [Achievement]) -> some View {
-        let unlocked = achievements.filter(\.isUnlocked).count
+        // Same rule as XPSummaryReader: a badge that ever unlocked stays earned, so a lapsed pledge streak, a deleted
+        // habit or a lower daily cost never locks it again, and the grid, this count and the Rank card agree.
+        let everUnlocked = AchievementTracker.shared.unlockedIDs
+        let shown = achievements.map {
+            Achievement(id: $0.id, title: $0.title, detail: $0.detail, symbol: $0.symbol, theme: $0.theme,
+                        isUnlocked: $0.isUnlocked || everUnlocked.contains($0.id))
+        }
+        let unlocked = shown.filter(\.isUnlocked).count
         let columns = [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 150 : 100), spacing: 12)]
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Achievements", systemImage: "rosette", tint: Palette.sun, trailing: Text("\(unlocked) of \(achievements.count)"))
+            SectionHeader(title: "Achievements", systemImage: "rosette", tint: Palette.sun, trailing: Text("\(unlocked) of \(shown.count)"))
             LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(achievements) { achievement in
+                ForEach(shown) { achievement in
                     InsightsAchievementMedallion(
                         achievement: achievement,
                         isNew: AchievementTracker.shared.isNew(achievement.id)
@@ -191,9 +204,11 @@ struct InsightsView: View {
     private func totalsSection(now: Date) -> some View {
         let totals = HabitTotals(habits: habits, at: now)
         let beaten = urges.filter(\.resisted).count
+        // One tile per row at accessibility sizes so the labels have room.
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "All time", systemImage: "sparkles", tint: Palette.mint)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 12) {
                 StatTile(title: "Total saved", value: MoneyFormatter.rounded(totals.moneySaved, code: currencyCode), systemImage: "banknote.fill", tint: Palette.money)
                 StatTile(title: "Time reclaimed", value: DurationFormatter.minutes(totals.minutesReclaimed), systemImage: "clock.fill", tint: Palette.time)
                 StatTile(title: "Cravings beaten", value: beaten.formatted(), systemImage: "shield.lefthalf.filled", tint: Palette.cravings)

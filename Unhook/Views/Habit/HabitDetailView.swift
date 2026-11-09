@@ -370,7 +370,12 @@ private struct HabitDetailStatsGrid: View {
     let stats: HabitStats
     let currencyCode: String
 
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Two to a row, or one at accessibility sizes so the labels have room.
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+    }
 
     private var showsUnits: Bool {
         habit.unitsPerDay > 0

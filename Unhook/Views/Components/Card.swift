@@ -36,6 +36,8 @@ struct StatTile: View {
     let systemImage: String
     var tint: Color = Palette.amber
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             IconBadge(systemImage: systemImage, tint: tint, size: 30)
@@ -46,10 +48,13 @@ struct StatTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText())
+            // The label wraps instead of cutting off at larger text sizes. Unit names are typed by the
+            // user and can be long, so accessibility sizes get as many lines as they need.
             Text(title)
                 .microLabel()
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
