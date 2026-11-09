@@ -31,14 +31,15 @@ final class Store {
         case restored, nothingFound, cancelled, failed
     }
 
-    var isPro: Bool { !purchasedProductIDs.isEmpty }
+    /// True when the user owns Pro, or always while the app launches free (see `Monetization`).
+    var isPro: Bool { !Monetization.isProEnabled || !purchasedProductIDs.isEmpty }
 
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
 
     /// Loads products and current entitlements, and keeps listening for purchases made elsewhere
     /// (renewals, Family Sharing, refunds, purchases on another device).
     func start() {
-        guard updatesTask == nil else { return }
+        guard Monetization.isProEnabled, updatesTask == nil else { return }
         updatesTask = Task { [weak self] in
             for await update in Transaction.updates {
                 if case .verified(let transaction) = update {
@@ -66,6 +67,7 @@ final class Store {
     }
 
     func refreshEntitlements() async {
+        guard Monetization.isProEnabled else { return }
         var owned: Set<String> = []
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result, transaction.revocationDate == nil else { continue }

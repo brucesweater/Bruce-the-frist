@@ -92,6 +92,11 @@ struct MainTabView: View {
             }
             presentPendingCelebration()
         }
+        #if DEBUG
+        .task {
+            UITestSupport.applyInitialScreen(router: router, habits: habits)
+        }
+        #endif
         .task {
             // Catch milestones that unlock while the app is open (the first hour, for example).
             while !Task.isCancelled {

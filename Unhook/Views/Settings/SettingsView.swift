@@ -79,7 +79,9 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
-            proSection
+            if Monetization.isProEnabled {
+                proSection
+            }
             remindersSection
             preferencesSection
             appIconSection

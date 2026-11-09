@@ -39,6 +39,7 @@ struct HomeView: View {
                             if !pledgedToday { showingPledge = true }
                         }
                         CoachEntryCard(habit: nil)
+                            .accessibilityIdentifier("coachEntry")
                         habitList
                         GoalsCard()
                     }
@@ -58,6 +59,7 @@ struct HomeView: View {
                             .font(.title3)
                     }
                     .accessibilityLabel("Add habit")
+                    .accessibilityIdentifier("addHabitButton")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -140,6 +142,7 @@ struct HomeView: View {
                     HabitCard(habit: habit)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("habitCard")
             }
         }
     }
@@ -175,6 +178,7 @@ struct SOSButton: View {
         }
         .buttonStyle(PrimaryButtonStyle(gradient: HabitTheme.fire.gradient))
         .shadow(color: HabitTheme.fire.accent.opacity(0.35), radius: 12, y: 6)
+        .accessibilityIdentifier("sosButton")
     }
 }
 

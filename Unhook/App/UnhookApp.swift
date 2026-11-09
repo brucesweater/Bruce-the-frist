@@ -6,9 +6,15 @@ struct UnhookApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var router = AppRouter.shared
     @State private var store = Store.shared
+    private let container: ModelContainer
 
     init() {
         NotificationManager.configure()
+        #if DEBUG
+        container = UITestSupport.isActive ? UITestSupport.makeContainer() : AppModelContainer.shared
+        #else
+        container = AppModelContainer.shared
+        #endif
     }
 
     var body: some Scene {
@@ -18,7 +24,7 @@ struct UnhookApp: App {
                 .environment(store)
                 .task { store.start() }
         }
-        .modelContainer(AppModelContainer.shared)
+        .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:

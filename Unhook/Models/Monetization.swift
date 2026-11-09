@@ -1,5 +1,12 @@
 import Foundation
 
+/// The launch switch for Unhook Pro. While `isProEnabled` is false the app is completely free: every feature is
+/// unlocked, StoreKit isn't started, and no paywall or Pro marketing is shown. To sell Pro later, set it to true,
+/// create the products in App Store Connect (IDs in `Store.ProductID`) and sign the Paid Apps agreement.
+enum Monetization {
+    static let isProEnabled = false
+}
+
 /// What the free tier includes. Crisis help (SOS), streaks, milestones and the recovery timeline are
 /// always free; Pro unlocks tracking several habits at once and the extras below.
 enum ProLimits {

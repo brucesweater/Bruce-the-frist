@@ -22,6 +22,7 @@ final class AppRouter {
     var celebration: MilestoneCelebration?
 
     func showPaywall(_ reason: PaywallReason) {
+        guard Monetization.isProEnabled else { return }
         paywallReason = reason
     }
 

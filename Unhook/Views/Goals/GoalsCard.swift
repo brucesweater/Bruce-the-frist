@@ -104,6 +104,7 @@ struct GoalsCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("allGoalsButton")
     }
 
     /// Free users save toward one goal at a time; another active goal opens the Pro paywall.

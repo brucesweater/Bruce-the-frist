@@ -15,6 +15,9 @@ enum NotificationManager {
 
     @discardableResult
     static func requestAuthorization() async -> Bool {
+        #if DEBUG
+        if UITestSupport.isActive { return false }
+        #endif
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
         } catch {
