@@ -213,7 +213,88 @@ def cmd_probe(api):
             print(f"GET {path}: {error.status} {error.body[:300]}")
 
 
+def _summ(value, limit=160):
+    text = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
+    return text if len(text) <= limit else text[:limit] + f"... ({len(text)} chars)"
+
+
+def cmd_inspect(api, bundle_identifier="com.brucegao.brucerun"):
+    """Read-only look at how an existing app is set up, to copy the shapes. Prints no personal data."""
+    app = api.app(bundle_identifier)
+    if not app:
+        print(f"No app for {bundle_identifier}.")
+        return
+    app_id = app["id"]
+    print(f"App {app['attributes'].get('name')} ({app_id}) attributes:", _summ(app["attributes"], 600))
+    for info in api.request("GET", f"/v1/apps/{app_id}/appInfos", params={"include": "primaryCategory,secondaryCategory,ageRatingDeclaration"}).get("data", []):
+        print("appInfo", info["id"], _summ(info["attributes"], 300))
+        rel = info.get("relationships", {})
+        for key in ("primaryCategory", "secondaryCategory"):
+            print(f"  {key}:", (rel.get(key, {}).get("data") or {}).get("id"))
+        try:
+            rating = api.request("GET", f"/v1/appInfos/{info['id']}/ageRatingDeclaration")
+            print("  ageRatingDeclaration:", json.dumps(rating["data"]["attributes"], sort_keys=True))
+        except APIError as error:
+            print("  ageRatingDeclaration error:", error.status)
+        locs = api.request("GET", f"/v1/appInfos/{info['id']}/appInfoLocalizations").get("data", [])
+        for loc in locs:
+            a = loc["attributes"]
+            print(f"  appInfoLocalization {a.get('locale')}: name={a.get('name')!r} subtitle={a.get('subtitle')!r} "
+                  f"privacy={a.get('privacyPolicyUrl')!r}")
+    versions = api.get_all(f"/v1/apps/{app_id}/appStoreVersions")
+    for v in versions[:2]:
+        va = v["attributes"]
+        print(f"version {va.get('versionString')} {va.get('appStoreState')} copyright={va.get('copyright')!r} "
+              f"releaseType={va.get('releaseType')}")
+        vlocs = api.request("GET", f"/v1/appStoreVersions/{v['id']}/appStoreVersionLocalizations").get("data", [])
+        for loc in vlocs[:2]:
+            a = loc["attributes"]
+            print(f"  versionLocalization {a.get('locale')}: keys={sorted(k for k, val in a.items() if val)}")
+            sets = api.request("GET", f"/v1/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets").get("data", [])
+            for st in sets:
+                shots = api.request("GET", f"/v1/appScreenshotSets/{st['id']}/appScreenshots").get("data", [])
+                dims = [(s2["attributes"].get("imageAsset") or {}) for s2 in shots[:1]]
+                print(f"    screenshotSet {st['attributes'].get('screenshotDisplayType')}: {len(shots)} shots "
+                      f"{[(d.get('width'), d.get('height')) for d in dims]}")
+        try:
+            review = api.request("GET", f"/v1/appStoreVersions/{v['id']}/appStoreReviewDetail")
+            ra = (review.get("data") or {}).get("attributes", {})
+            print("  reviewDetail fields set:", sorted(k for k, val in ra.items() if val not in (None, "", False)))
+        except APIError as error:
+            print("  reviewDetail:", error.status)
+    try:
+        schedule = api.request("GET", f"/v1/apps/{app_id}/appPriceSchedule", params={"include": "baseTerritory,manualPrices"})
+        print("priceSchedule:", _summ(schedule.get("data", {}).get("relationships", {}), 300))
+        for inc in schedule.get("included", [])[:3]:
+            print("  included", inc["type"], inc["id"][:40], _summ(inc.get("attributes", {}), 200))
+    except APIError as error:
+        print("priceSchedule:", error.status, error.body[:200])
+    try:
+        events = api.request("GET", f"/v1/apps/{app_id}/appEvents", params={"limit": 10}).get("data", [])
+        for ev in events:
+            print("appEvent", ev["id"], json.dumps(ev["attributes"], ensure_ascii=False, sort_keys=True)[:900])
+            elocs = api.request("GET", f"/v1/appEvents/{ev['id']}/localizations").get("data", [])
+            for el in elocs[:3]:
+                print("  eventLocalization", json.dumps(el["attributes"], ensure_ascii=False)[:400])
+                try:
+                    shots = api.request("GET", f"/v1/appEventLocalizations/{el['id']}/appEventScreenshots").get("data", [])
+                    for sh in shots:
+                        at = sh["attributes"]
+                        print("    eventScreenshot", at.get("appEventAssetType"), (at.get("imageAsset") or {}).get("width"),
+                              (at.get("imageAsset") or {}).get("height"))
+                except APIError as error:
+                    print("    eventScreenshots:", error.status)
+    except APIError as error:
+        print("appEvents:", error.status, error.body[:300])
+    try:
+        avail = api.request("GET", f"/v1/apps/{app_id}/appAvailabilityV2")
+        print("availability:", _summ(avail.get("data", {}).get("attributes", {}), 200))
+    except APIError as error:
+        print("availability:", error.status, error.body[:200])
+
+
 COMMANDS = {
+    "inspect": cmd_inspect,
     "check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app, "probe": cmd_probe,
 }
 
