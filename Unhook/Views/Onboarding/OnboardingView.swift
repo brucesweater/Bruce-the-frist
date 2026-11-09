@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 /// First-run flow: pick the habit, personalize it, see what quitting gives back, opt into reminders and
-/// meet Unhook Pro. The habit is created only at the very end, so leaving midway never saves half an answer.
+/// meet Unhook Pro. The sky warms a little with every step, from deep night on the welcome screen toward dawn.
+/// The habit is created only at the very end, so leaving midway never saves half an answer.
 struct OnboardingView: View {
     let onFinish: () -> Void
 
@@ -22,15 +23,13 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Brand.night
-                .ignoresSafeArea()
+            OnboardingSky(dawn: dawnLevel)
 
             VStack(spacing: 0) {
                 if let number = step.questionNumber {
                     OnboardingTopBar(
                         questionNumber: number,
                         questionCount: OnboardingStep.questionCount,
-                        tint: accentGradient,
                         onBack: { goBack() }
                     )
                     .transition(.opacity)
@@ -63,24 +62,28 @@ struct OnboardingView: View {
         case .projection:
             OnboardingProjectionStep(answers: answers) { move(to: .reminders) }
         case .reminders:
-            OnboardingRemindersStep(theme: answers.theme) { leaveReminders() }
+            OnboardingRemindersStep { leaveReminders() }
         case .paywall:
             PaywallView(reason: .onboarding, onClose: { finish() })
         }
     }
 
-    /// The chosen habit's colors once there is one, the brand's before that.
-    private var accentGradient: LinearGradient {
-        answers.hasChosenPreset ? answers.theme.gradient : Brand.gradient
+    /// How far the sky has warmed: night on the welcome screen, first light by the last step.
+    private var dawnLevel: Double {
+        Double(step.rawValue) / Double(OnboardingStep.paywall.rawValue)
     }
 
     /// Only the incoming screen moves (the outgoing one fades), so the direction is always read from current
-    /// state and going back never slides the wrong way.
+    /// state and going back never slides the wrong way. The outgoing screen stops taking taps right away.
     private var stepTransition: AnyTransition {
-        guard !reduceMotion else { return .opacity }
+        let exit = AnyTransition.modifier(
+            active: OnboardingStepExit(isExiting: true),
+            identity: OnboardingStepExit(isExiting: false)
+        )
+        guard !reduceMotion else { return .asymmetric(insertion: .opacity, removal: exit) }
         return .asymmetric(
             insertion: .offset(x: isMovingForward ? 48 : -48).combined(with: .opacity),
-            removal: .opacity
+            removal: exit
         )
     }
 
@@ -137,6 +140,41 @@ struct OnboardingView: View {
         saveHabit()
         Haptics.success()
         onFinish()
+    }
+}
+
+/// The onboarding sky: the app's night background plus a warm dawn light that rises a little with each step.
+private struct OnboardingSky: View {
+    let dawn: Double
+
+    var body: some View {
+        ZStack {
+            DawnBackground(glow: 0.1)
+            RadialGradient(
+                colors: [Palette.amber.opacity(0.34), Palette.rose.opacity(0.14), .clear],
+                center: UnitPoint(x: 0.5, y: 1.08),
+                startRadius: 0,
+                endRadius: 560
+            )
+            .opacity(dawn)
+            .offset(y: 160 * (1 - dawn))
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// How a step leaves: it fades out and, from the first frame, stops taking taps and drops out of the
+/// accessibility tree, so a screen on its way out can never be activated by mistake.
+private struct OnboardingStepExit: ViewModifier {
+    let isExiting: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isExiting ? 0 : 1)
+            .allowsHitTesting(!isExiting)
+            .accessibilityHidden(isExiting)
     }
 }
 

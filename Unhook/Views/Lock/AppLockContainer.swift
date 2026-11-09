@@ -144,7 +144,8 @@ final class AppLockCoverWindow {
     private func makeWindow(in scene: UIWindowScene) -> UIWindow {
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
-        window.backgroundColor = .black
+        // The night sky's deepest color, so nothing brighter can flash behind the cover.
+        window.backgroundColor = UIColor(Palette.ink)
         // Light status bar text over the night-sky background.
         window.overrideUserInterfaceStyle = .dark
 

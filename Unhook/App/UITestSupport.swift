@@ -6,8 +6,11 @@ import SwiftUI
 ///
 /// - `-UITest`: fresh in-memory data and no system permission prompts.
 /// - `-UITestSeed`: fill that store with realistic sample data (a 47-day streak, goals, cravings, pledges).
-/// - `-UITestScreen <name>`: open a screen at launch: `today`, `progress`, `settings`, `sos` or `celebration`.
+/// - `-UITestScreen <name>`: open a screen at launch: `today`, `progress`, `settings`, `sos`, `celebration`,
+///   `challenge` (the 30-Day Reset) or `rankup` (the rank-up celebration).
+/// - `-UITestHour <0-23>`: the hour Today's greeting is written for, so screenshots don't depend on the clock.
 ///
+/// Rank-up celebrations only appear with `-UITestScreen rankup`, so they never cover other screenshots.
 /// Onboarding is controlled with the user-defaults argument `-hasOnboarded YES` / `-hasOnboarded NO`.
 enum UITestSupport {
     static let arguments = ProcessInfo.processInfo.arguments
@@ -19,6 +22,14 @@ enum UITestSupport {
             return nil
         }
         return arguments[index + 1]
+    }
+
+    /// The hour passed with `-UITestHour`, or nil to use the clock.
+    static var hourOverride: Int? {
+        guard let index = arguments.firstIndex(of: "-UITestHour"), arguments.indices.contains(index + 1),
+              let hour = Int(arguments[index + 1]), (0..<24).contains(hour)
+        else { return nil }
+        return hour
     }
 
     @MainActor
@@ -40,6 +51,8 @@ enum UITestSupport {
             router.selectedTab = .settings
         case "sos":
             router.isShowingSOS = true
+        case "challenge":
+            router.showChallenge()
         case "celebration":
             guard let habit = habits.first,
                   let milestone = Milestone.latest(reachedBy: habit.stats().currentStreak) else { return }
@@ -115,6 +128,18 @@ enum UITestSampleData {
         for (offset, mood) in moods.enumerated() {
             context.insert(Pledge(day: now.addingTimeInterval(-Double(offset) * day), mood: mood))
         }
+
+        // One of today's missions already checked off, and a 30-Day Reset on day 5 with days 1-4 done.
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        if let mission = DailyMissions.missions(for: now, calendar: calendar).first(where: { $0.kind == .selfReported }) {
+            context.insert(MissionCompletion(day: today, missionID: mission.id, completedAt: now))
+        }
+        let resetStart = calendar.date(byAdding: .day, value: -4, to: today) ?? today
+        let reset = ChallengeProgress(challengeID: ResetChallenge.id, startDay: resetStart)
+        reset.joinedAt = resetStart
+        reset.completedDays = [1, 2, 3, 4]
+        context.insert(reset)
 
         try? context.save()
     }

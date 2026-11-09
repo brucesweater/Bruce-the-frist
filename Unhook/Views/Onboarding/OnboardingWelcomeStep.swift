@@ -1,17 +1,24 @@
 import SwiftUI
 
-/// First screen: the brand, the promise and one button.
+/// First screen: a dawn orb in a slow orbit of the habits people quit, the promise and one button.
 struct OnboardingWelcomeStep: View {
     let onStart: () -> Void
+
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 40
+
+    init(onStart: @escaping () -> Void) {
+        self.onStart = onStart
+    }
 
     var body: some View {
         VStack(spacing: 16) {
             GeometryReader { proxy in
                 ScrollView {
-                    VStack(spacing: 28) {
+                    VStack(spacing: 30) {
                         WelcomeHero()
                         headline
                     }
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, minHeight: proxy.size.height)
                 }
                 .scrollBounceBehavior(.basedOnSize)
@@ -25,85 +32,102 @@ struct OnboardingWelcomeStep: View {
                 .buttonStyle(PrimaryButtonStyle())
 
                 Text("Free · Private · No account needed")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Palette.textSecondary)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
+            .frame(maxWidth: 560)
         }
     }
 
     private var headline: some View {
         VStack(spacing: 14) {
             Text("Break free from any habit")
-                .font(.largeTitle.bold())
-                .foregroundStyle(.white)
+                .font(.system(size: titleSize, weight: .bold, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(colors: [Palette.textPrimary, Palette.sun], startPoint: .top, endPoint: .bottom)
+                )
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             Text("Smoking, vaping, drinking, doomscrolling, sugar. Unhook helps you quit anything, one day at a time.")
-                .foregroundStyle(.white.opacity(0.75))
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, 32)
     }
 }
 
-/// The app icon glowing in the middle of a gentle orbit of the habits people quit with Unhook.
+/// The dawn orb at the center of a slow orbit of the habits people quit with Unhook. Still with Reduce Motion.
 private struct WelcomeHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isFloating = false
 
     private static let emojis = ["🚬", "💨", "🍺", "📱", "🍭", "🎮"]
-    private static let orbitRadius: Double = 118
+    private static let orbSize: CGFloat = 156
+    private static let orbitRadius: Double = 128
+    private static let bubbleSize: CGFloat = 50
+    /// Seconds per orbit and per gentle bob. The loop is a multiple of both, so wrapping around is seamless.
+    private static let orbitPeriod: Double = 80
+    private static let bobPeriod: Double = 7
+    private static let loopLength: Double = 560
+
+    private static var extent: CGFloat {
+        CGFloat(orbitRadius * 2) + bubbleSize + 12
+    }
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(Brand.gradient)
-                .frame(width: 220, height: 220)
-                .blur(radius: 60)
-                .opacity(0.7)
-
-            ForEach(Array(Self.emojis.enumerated()), id: \.offset) { index, emoji in
-                Text(emoji)
-                    .font(.system(size: 28))
-                    .frame(width: 52, height: 52)
-                    .background(Color.white.opacity(0.1), in: Circle())
-                    .offset(orbitOffset(for: index))
-                    .offset(y: floatOffset(for: index))
+            DawnOrb(progress: 0.15, size: Self.orbSize)
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+                orbit(time: reduceMotion ? 0 : Self.loopTime(at: context.date))
             }
-
-            Image(AppIconOption.standard.previewImageName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: Brand.colors[0].opacity(0.6), radius: 24, y: 8)
         }
-        .frame(width: 300, height: 300)
+        .frame(width: Self.extent, height: Self.extent)
         .accessibilityHidden(true)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
-                isFloating = true
+    }
+
+    private func orbit(time: Double) -> some View {
+        ZStack {
+            ForEach(Array(Self.emojis.enumerated()), id: \.offset) { index, emoji in
+                WelcomeEmojiBubble(emoji: emoji, size: Self.bubbleSize)
+                    .offset(Self.position(index: index, time: time))
             }
         }
     }
 
-    private func orbitOffset(for index: Int) -> CGSize {
-        let angle = Double(index) / Double(Self.emojis.count) * 2 * Double.pi - Double.pi / 2
-        return CGSize(width: cos(angle) * Self.orbitRadius, height: sin(angle) * Self.orbitRadius)
+    private static func loopTime(at date: Date) -> Double {
+        date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: loopLength)
     }
 
-    /// Neighbours bob in opposite directions so the orbit feels alive without moving as one block.
-    private func floatOffset(for index: Int) -> CGFloat {
-        guard isFloating else { return 0 }
-        return index.isMultiple(of: 2) ? -6 : 6
+    /// Evenly spaced around the orb, turning slowly, each one bobbing a little out of step with its neighbours.
+    private static func position(index: Int, time: Double) -> CGSize {
+        let start = Double(index) / Double(emojis.count)
+        let angle = (start + time / orbitPeriod) * 2 * Double.pi - Double.pi / 2
+        let bob = sin((time / bobPeriod + start) * 2 * Double.pi) * 4
+        return CGSize(width: cos(angle) * orbitRadius, height: sin(angle) * orbitRadius + bob)
+    }
+}
+
+/// One habit emoji in a small frosted bubble.
+private struct WelcomeEmojiBubble: View {
+    let emoji: String
+    let size: CGFloat
+
+    var body: some View {
+        Text(emoji)
+            .font(.system(size: size * 0.52))
+            .frame(width: size, height: size)
+            .background(Palette.surface.opacity(0.78), in: Circle())
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
 }
 
 #Preview {
     ZStack {
-        Brand.night.ignoresSafeArea()
+        DawnBackground(glow: 0.1)
         OnboardingWelcomeStep {}
     }
     .environment(\.colorScheme, .dark)

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 
+/// Creates or edits a habit: a Form of frosted rows on the night sky.
 struct HabitFormView: View {
     let editing: Habit?
     let onSave: () -> Void
@@ -31,6 +32,8 @@ struct HabitFormView: View {
             costSection
             reasonsSection
         }
+        .dawnScreenBackground(glow: 0.2)
+        .tint(Palette.amber)
         .navigationTitle(editing == nil ? "New habit" : "Edit habit")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -57,50 +60,69 @@ struct HabitFormView: View {
                 TextField("✨", text: $draft.emoji)
                     .font(.system(size: 34))
                     .multilineTextAlignment(.center)
-                    .frame(width: 60, height: 60)
-                    .background(draft.theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(width: 62, height: 62)
+                    .background {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(draft.theme.gradient)
+                            .opacity(0.3)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(draft.theme.accent.opacity(0.55), lineWidth: 1)
+                    }
                     .focused($focusedField, equals: .emoji)
                     .onChange(of: draft.emoji) { _, newValue in
                         if newValue.count > 1 { draft.emoji = String(newValue.suffix(1)) }
                     }
                     .accessibilityLabel("Emoji")
                 TextField("What are you quitting?", text: $draft.name)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .foregroundStyle(Palette.textPrimary)
                     .focused($focusedField, equals: .name)
                     .submitLabel(.done)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
+        } header: {
+            HabitFormHeader(title: Text("Your habit"), systemImage: "sparkles", tint: draft.theme.accent)
         } footer: {
-            Text("Tap the emoji to pick your own.")
+            HabitFormFooter(text: Text("Tap the emoji to pick your own."))
         }
+        .habitFormRowStyle()
     }
 
     private var themeSection: some View {
-        Section("Color") {
+        Section {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(HabitTheme.allCases) { theme in
-                        Button {
-                            draft.theme = theme
-                            Haptics.selection()
-                        } label: {
-                            Circle()
-                                .fill(theme.gradient)
-                                .frame(width: 38, height: 38)
-                                .padding(4)
-                                .overlay(
-                                    Circle().stroke(Color.primary, lineWidth: draft.theme == theme ? 2.5 : 0)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(theme.displayName)
-                        .accessibilityAddTraits(draft.theme == theme ? .isSelected : [])
+                        themeSwatch(theme)
                     }
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 2)
             }
+        } header: {
+            HabitFormHeader(title: Text("Color"), systemImage: "paintpalette.fill", tint: draft.theme.accent)
         }
+        .habitFormRowStyle()
+    }
+
+    private func themeSwatch(_ theme: HabitTheme) -> some View {
+        let isSelected = draft.theme == theme
+        return Button {
+            draft.theme = theme
+            Haptics.selection()
+        } label: {
+            Circle()
+                .fill(theme.gradient)
+                .frame(width: 38, height: 38)
+                .padding(4)
+                .overlay(Circle().strokeBorder(Palette.textPrimary, lineWidth: isSelected ? 2.5 : 0))
+                .shadow(color: theme.accent.opacity(isSelected ? 0.6 : 0), radius: 8)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(theme.displayName)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     /// The current streak can't start before the last slip; otherwise that clean time would count twice.
@@ -113,35 +135,62 @@ struct HabitFormView: View {
         Section {
             DatePicker("Quit date", selection: $draft.quitDate, in: earliestQuitDate...Date.now)
         } header: {
-            Text(editing == nil ? "When did you quit?" : "Current streak started")
+            HabitFormHeader(
+                title: Text(editing == nil ? "When did you quit?" : "Current streak started"),
+                systemImage: "calendar",
+                tint: Palette.sky
+            )
         } footer: {
-            Text(editing == nil
-                 ? "Already clean for a while? Pick the date and Unhook counts it."
-                 : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history.")
+            HabitFormFooter(text: Text(editing == nil
+                ? "Already clean for a while? Pick the date and Unhook counts it."
+                : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history."))
         }
+        .habitFormRowStyle()
     }
 
     private var costSection: some View {
         Section {
-            numberRow("Money per day", text: $draft.costText, prefix: currencySymbol, field: .cost)
-            numberRow("Minutes per day", text: $draft.minutesText, prefix: nil, field: .minutes)
-            HStack {
-                Text("Amount per day")
-                Spacer()
-                TextField("0", text: $draft.unitsText)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 70)
-                    .focused($focusedField, equals: .units)
-                TextField("units", text: $draft.unitName)
-                    .frame(maxWidth: 100)
-                    .foregroundStyle(.secondary)
-                    .focused($focusedField, equals: .unitName)
-            }
+            numberRow(
+                "Money per day",
+                systemImage: "banknote.fill",
+                tint: Palette.money,
+                text: $draft.costText,
+                prefix: currencySymbol,
+                field: .cost
+            )
+            numberRow(
+                "Minutes per day",
+                systemImage: "clock.fill",
+                tint: Palette.time,
+                text: $draft.minutesText,
+                prefix: nil,
+                field: .minutes
+            )
+            amountRow
         } header: {
-            Text("What it cost you")
+            HabitFormHeader(title: Text("What it cost you"), systemImage: "chart.bar.fill", tint: Palette.money)
         } footer: {
-            Text("Used to show the money, time and \(draft.unitName.isEmpty ? "units" : draft.unitName) you win back. Leave blank if it doesn't apply.")
+            HabitFormFooter(text: Text("Used to show the money, time and \(unitsLabel) you win back. Leave blank if it doesn't apply."))
+        }
+        .habitFormRowStyle()
+    }
+
+    private var amountRow: some View {
+        HStack(spacing: 12) {
+            IconBadge(systemImage: "number", tint: Palette.units, size: 30)
+            Text("Amount per day")
+            Spacer()
+            TextField("0", text: $draft.unitsText)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .font(.system(.body, design: .rounded).weight(.semibold).monospacedDigit())
+                .frame(maxWidth: 70)
+                .focused($focusedField, equals: .units)
+                .accessibilityLabel(Text("Amount per day"))
+            TextField("units", text: $draft.unitName)
+                .frame(maxWidth: 100)
+                .foregroundStyle(Palette.textSecondary)
+                .focused($focusedField, equals: .unitName)
         }
     }
 
@@ -152,35 +201,50 @@ struct HabitFormView: View {
                     .focused($focusedField, equals: .reason(index))
             }
         } header: {
-            Text("Why are you quitting?")
+            HabitFormHeader(title: Text("Why are you quitting?"), systemImage: "heart.fill", tint: Palette.rose)
         } footer: {
-            Text("Your reasons appear on the SOS screen when a craving hits. Make them personal.")
+            HabitFormFooter(text: Text("Your reasons appear on the SOS screen when a craving hits. Make them personal."))
         }
+        .habitFormRowStyle()
     }
 
     // MARK: Helpers
 
-    private func numberRow(_ title: LocalizedStringKey, text: Binding<String>, prefix: String?, field: Field) -> some View {
-        HStack {
+    private func numberRow(
+        _ title: LocalizedStringKey,
+        systemImage: String,
+        tint: Color,
+        text: Binding<String>,
+        prefix: String?,
+        field: Field
+    ) -> some View {
+        HStack(spacing: 12) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 30)
             Text(title)
             Spacer()
             if let prefix {
                 Text(prefix)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.textSecondary)
             }
             TextField("0", text: text)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
+                .font(.system(.body, design: .rounded).weight(.semibold).monospacedDigit())
                 .frame(maxWidth: 100)
                 .focused($focusedField, equals: field)
+                .accessibilityLabel(Text(title))
         }
+    }
+
+    private var unitsLabel: String {
+        draft.unitName.isEmpty ? String(localized: "units") : draft.unitName
     }
 
     private func reasonPlaceholder(_ index: Int) -> String {
         if index < draft.suggestedReasons.count {
-            return "e.g. \(draft.suggestedReasons[index])"
+            return String(localized: "e.g. \(draft.suggestedReasons[index])")
         }
-        return "Reason \(index + 1)"
+        return String(localized: "Reason \(index + 1)")
     }
 
     private var currencySymbol: String {
@@ -216,6 +280,44 @@ struct HabitFormView: View {
         NotificationManager.scheduleMilestones(for: habit)
         Haptics.success()
         onSave()
+    }
+}
+
+/// A rounded section heading with a tinted symbol.
+private struct HabitFormHeader: View {
+    let title: Text
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            title
+                .foregroundStyle(Palette.textPrimary)
+        }
+        .font(.system(.subheadline, design: .rounded).weight(.bold))
+        .textCase(nil)
+    }
+}
+
+/// Section footnote text, readable on the night background.
+private struct HabitFormFooter: View {
+    let text: Text
+
+    var body: some View {
+        text
+            .font(.footnote)
+            .foregroundStyle(Palette.textSecondary)
+    }
+}
+
+private extension View {
+    /// Frosted rows with soft separators on the night background.
+    func habitFormRowStyle() -> some View {
+        listRowBackground(Palette.surface.opacity(0.72))
+            .listRowSeparatorTint(Palette.hairline)
     }
 }
 

@@ -7,6 +7,7 @@ struct RootView: View {
     /// Bumped when the user erases their data so every navigation stack starts fresh.
     @AppStorage(AppSettings.Keys.dataResetCount) private var dataResetCount = 0
     @Environment(AppRouter.self) private var router
+    @Environment(\.modelContext) private var context
     @Query private var habits: [Habit]
 
     var body: some View {
@@ -29,6 +30,10 @@ struct RootView: View {
         .fullScreenCover(isPresented: $router.isShowingSOS) {
             SOSView(habit: nil)
         }
+        // The 30-Day Reset, opened from the Today card or a link (unhook://challenge/reset30).
+        .sheet(isPresented: $router.isShowingChallenge) {
+            ChallengeView()
+        }
         .task {
             // Onboarding saves the first habit just before its paywall. If the app was closed there,
             // don't run onboarding again (and create a duplicate habit) on the next launch.
@@ -36,12 +41,24 @@ struct RootView: View {
                 hasOnboarded = true
             }
         }
-        // Widget taps: unhook://sos opens SOS, anything else goes to Today.
+        // "Erase all data" in Settings bumps the reset count: clear the engagement records too
+        // (mission check-offs, challenge runs, remembered achievements and rank).
+        .onChange(of: dataResetCount) {
+            EngagementData.eraseAll(in: context)
+        }
+        // Widget and notification links: unhook://sos opens SOS, unhook://challenge/reset30 opens the
+        // 30-Day Reset, anything else goes to Today.
         .onOpenURL { url in
             guard url.scheme == "unhook" else { return }
-            if url.host == "sos" {
+            switch url.host ?? "" {
+            case "sos":
                 Task { await router.requestSOS() }
-            } else {
+            case "challenge":
+                router.selectedTab = .today
+                if hasOnboarded {
+                    router.showChallenge()
+                }
+            default:
                 router.selectedTab = .today
             }
         }
@@ -53,6 +70,7 @@ struct MainTabView: View {
     @Environment(\.requestReview) private var requestReview
     @Environment(AppRouter.self) private var router
     @Query private var habits: [Habit]
+    @Query private var challengeRuns: [ChallengeProgress]
 
     var body: some View {
         @Bindable var router = router
@@ -84,12 +102,18 @@ struct MainTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.35), value: router.celebration?.id)
+        // Rank-up moments; they wait while SOS or a milestone celebration is showing.
+        .overlay {
+            RankUpObserver()
+        }
         .onChange(of: scenePhase, initial: true) { _, phase in
             guard phase == .active else { return }
             // Only the next few milestone alerts are scheduled at a time, so top them up whenever the app opens.
             for habit in habits {
                 NotificationManager.scheduleMilestones(for: habit)
             }
+            // The daily reminder mentions the 30-Day Reset only while one is running.
+            NotificationManager.setChallengeActive(ResetChallenge.activeRun(in: challengeRuns) != nil)
             presentPendingCelebration()
         }
         #if DEBUG

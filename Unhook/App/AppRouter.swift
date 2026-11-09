@@ -20,10 +20,27 @@ final class AppRouter {
     var paywallReason: PaywallReason?
     /// Shows a full-screen milestone celebration.
     var celebration: MilestoneCelebration?
+    /// Shows the 30-Day Reset challenge (presented by `RootView`).
+    var isShowingChallenge = false
 
     func showPaywall(_ reason: PaywallReason) {
         guard Monetization.isProEnabled else { return }
         paywallReason = reason
+    }
+
+    /// Opens the 30-Day Reset from anywhere (the Today card, a link). A sheet that's already open would block it,
+    /// so that closes first. SOS always stays on top, so nothing happens while it's showing.
+    func showChallenge() {
+        guard !isShowingSOS, !isShowingChallenge else { return }
+        if Self.dismissPresentedScreens() {
+            Task {
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !self.isShowingSOS else { return }
+                self.isShowingChallenge = true
+            }
+        } else {
+            isShowingChallenge = true
+        }
     }
 
     /// Shows SOS from anywhere (Siri, the Action button, a widget). A sheet that's already open would block
@@ -31,6 +48,7 @@ final class AppRouter {
     func requestSOS() async {
         guard !isShowingSOS else { return }
         paywallReason = nil
+        isShowingChallenge = false
         if Self.dismissPresentedScreens() {
             try? await Task.sleep(for: .milliseconds(450))
         }

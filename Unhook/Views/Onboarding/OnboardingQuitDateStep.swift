@@ -13,8 +13,6 @@ struct OnboardingQuitDateStep: View {
         self.onContinue = onContinue
     }
 
-    private var tint: LinearGradient { answers.theme.gradient }
-
     var body: some View {
         OnboardingStepLayout(
             title: Text(OnboardingCopy.lastTimeQuestion(presetID: answers.draft.presetID)),
@@ -32,24 +30,25 @@ struct OnboardingQuitDateStep: View {
                 Haptics.tap()
                 onContinue()
             }
-            .buttonStyle(PrimaryButtonStyle(gradient: tint))
+            .buttonStyle(PrimaryButtonStyle())
             .disabled(!answers.canLeaveQuitDateStep)
         }
     }
 
     private var nameField: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Name your habit")
-                .font(.headline)
-                .foregroundStyle(.white)
+                .font(.cardTitle)
+                .foregroundStyle(Palette.textPrimary)
             TextField("e.g. Late-night snacking", text: $answers.draft.name)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .foregroundStyle(Palette.textPrimary)
+                .tint(Palette.amber)
                 .submitLabel(.done)
                 .focused($isNameFocused)
                 .onSubmit { isNameFocused = false }
                 .padding(16)
-                .onboardingPanel(isHighlighted: isNameFocused, tint: tint)
+                .onboardingPanel(isHighlighted: isNameFocused)
         }
     }
 
@@ -59,8 +58,7 @@ struct OnboardingQuitDateStep: View {
                 title: Text("Just now"),
                 subtitle: Text("I'm starting fresh today"),
                 systemImage: "sparkles",
-                isSelected: answers.timing == .justNow,
-                tint: tint
+                isSelected: answers.timing == .justNow
             ) {
                 select(.justNow)
             }
@@ -68,8 +66,7 @@ struct OnboardingQuitDateStep: View {
                 title: Text("Earlier"),
                 subtitle: Text("I've already been going without"),
                 systemImage: "calendar",
-                isSelected: answers.timing == .earlier,
-                tint: tint
+                isSelected: answers.timing == .earlier
             ) {
                 select(.earlier)
             }
@@ -83,11 +80,18 @@ struct OnboardingQuitDateStep: View {
     private var earlierPicker: some View {
         VStack(alignment: .leading, spacing: 12) {
             DatePicker("Last time", selection: $answers.draft.quitDate, in: ...Date.now)
-                .font(.headline)
+                .font(.cardTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .tint(Palette.amber)
             if let encouragement {
-                Text(encouragement)
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.7))
+                Label {
+                    Text(encouragement)
+                } icon: {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Palette.sun)
+                }
+                .font(.subheadline)
+                .foregroundStyle(Palette.textSecondary)
             }
         }
         .padding(16)
@@ -111,7 +115,7 @@ struct OnboardingQuitDateStep: View {
 
 #Preview {
     ZStack {
-        Brand.night.ignoresSafeArea()
+        DawnBackground(glow: 0.2)
         OnboardingQuitDateStep(answers: .constant(.preview)) {}
     }
     .environment(\.colorScheme, .dark)

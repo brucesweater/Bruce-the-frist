@@ -55,7 +55,7 @@ struct MissionsCard: View {
     private func missionStatuses(on now: Date) -> [MissionStatus] {
         let calendar = Calendar.current
         let beatCraving = urges.contains { $0.resisted && calendar.isDate($0.date, inSameDayAs: now) }
-        return DailyMissions.missions(for: now, calendar: calendar).map { mission in
+        return DailyMissions.missions(for: now, calendar: calendar).map { (mission: Mission) -> MissionStatus in
             let isDone = DailyMissions.isCompleted(
                 mission,
                 on: now,

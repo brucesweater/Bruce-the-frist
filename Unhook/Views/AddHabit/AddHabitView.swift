@@ -27,65 +27,44 @@ struct AddHabitView: View {
                 }
             }
         }
+        .tint(Palette.amber)
     }
 }
 
+/// "New habit": the same glass grid of presets as onboarding, on the night sky. "Something else" starts a custom habit.
 struct PresetPickerView: View {
     let onSelect: (HabitPreset) -> Void
 
-    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 12)]
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("What do you want to quit?")
-                        .font(.title.bold())
-                    Text("Pick one to start. You can fine-tune the details next.")
-                        .foregroundStyle(.secondary)
-                }
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(HabitPreset.all) { preset in
-                        Button {
-                            Haptics.selection()
-                            onSelect(preset)
-                        } label: {
-                            PresetTile(preset: preset)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            VStack(alignment: .leading, spacing: 22) {
+                header
+                HabitPresetGrid { preset in
+                    Haptics.selection()
+                    onSelect(preset)
                 }
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground))
+        .scrollBounceBehavior(.basedOnSize)
+        .dawnScreenBackground(glow: 0.2)
         .navigationTitle("New habit")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
-}
 
-private struct PresetTile: View {
-    let preset: HabitPreset
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Text(preset.emoji)
-                .font(.system(size: 36))
-            Text(preset.title)
-                .font(.subheadline.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("What do you want to quit?")
+                .font(.system(.title, design: .rounded).weight(.bold))
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text("Pick one to start. You can fine-tune the details next.")
+                .foregroundStyle(Palette.textSecondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 112)
-        .padding(8)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(alignment: .bottom) {
-            Capsule()
-                .fill(preset.theme.gradient)
-                .frame(width: 28, height: 4)
-                .padding(.bottom, 10)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

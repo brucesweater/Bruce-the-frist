@@ -49,6 +49,17 @@ enum PreviewData {
             smoking.urges.append(urge)
             context.insert(Pledge(day: .now.addingTimeInterval(-Double(offset) * day), mood: mood))
         }
+
+        // Engagement: a mission checked off today and a 30-Day Reset on day 4 with days 1-3 done.
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        if let mission = DailyMissions.missions(for: .now, calendar: calendar).first(where: { $0.kind == .selfReported }) {
+            context.insert(MissionCompletion(day: today, missionID: mission.id))
+        }
+        let resetStart = calendar.date(byAdding: .day, value: -3, to: today) ?? today
+        let reset = ChallengeProgress(challengeID: ResetChallenge.id, startDay: resetStart)
+        reset.completedDays = [1, 2, 3]
+        context.insert(reset)
     }
 }
 

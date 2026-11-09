@@ -8,7 +8,7 @@ struct OnboardingProjectionStep: View {
     @AppStorage(AppSettings.Keys.currencyCode) private var currencyCode = AppSettings.defaultCurrencyCode
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 52
+    @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 64
 
     /// Share (0...1) of the final numbers currently shown, driven by the count-up.
     @State private var progress: Double = 0
@@ -22,7 +22,6 @@ struct OnboardingProjectionStep: View {
     }
 
     private var projection: OnboardingProjection { answers.projection }
-    private var theme: HabitTheme { answers.theme }
     private var showsMoney: Bool { projection.yearlyMoney >= 1 }
     private var showsHours: Bool { projection.yearlyHours >= 1 }
     private var showsUnits: Bool { projection.yearlyUnits >= 1 && !answers.draft.unitName.isEmpty }
@@ -50,32 +49,43 @@ struct OnboardingProjectionStep: View {
                 Haptics.tap()
                 onContinue()
             }
-            .buttonStyle(PrimaryButtonStyle(gradient: theme.gradient))
+            .buttonStyle(PrimaryButtonStyle())
         }
         .task { await countUp() }
     }
 
     // MARK: Cards
 
+    /// The yearly money as one huge dawn-gold numeral.
     private var moneyCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("In one year you'll save")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.85))
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(Palette.textSecondary)
             Text(MoneyFormatter.rounded(projection.yearlyMoney * progress, code: currencyCode))
                 .font(.system(size: heroFontSize, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .minimumScaleFactor(0.4)
                 .contentTransition(.numericText())
-                .foregroundStyle(.white)
+                .foregroundStyle(Brand.dawn)
+                .shadow(color: Palette.amber.opacity(0.35), radius: 18, y: 4)
             Text("That's \(MoneyFormatter.precise(projection.dailyCost, code: currencyCode)) a day back in your pocket.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Palette.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(theme.gradient, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .padding(22)
+        .background {
+            RadialGradient(
+                colors: [Palette.amber.opacity(0.22), .clear],
+                center: UnitPoint(x: 0.2, y: 0.55),
+                startRadius: 0,
+                endRadius: 260
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        }
+        .glassSurface(cornerRadius: 28, tint: Palette.amber, highlighted: true)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("In one year you'll save \(MoneyFormatter.rounded(projection.yearlyMoney, code: currencyCode))"))
     }
@@ -100,7 +110,7 @@ struct OnboardingProjectionStep: View {
             caption: Text("You'll win back"),
             value: (projection.yearlyHours * progress).clampedWholeNumber.formatted(),
             unit: Text("hours"),
-            tint: theme.accent,
+            tint: Palette.time,
             accessibilityText: Text("You'll win back \(projection.yearlyHours.clampedWholeNumber) hours")
         )
     }
@@ -111,23 +121,27 @@ struct OnboardingProjectionStep: View {
             caption: Text("You'll skip"),
             value: (projection.yearlyUnits * progress).clampedWholeNumber.formatted(),
             unit: Text(answers.draft.unitName),
-            tint: theme.accent,
+            tint: Palette.units,
             accessibilityText: Text("You'll skip \(projection.yearlyUnits.clampedWholeNumber) \(answers.draft.unitName)")
         )
     }
 
     private var uncountableCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Some wins can't be counted")
-                .font(.headline)
-                .foregroundStyle(.white)
-            Text("More calm, more control, and proof you can do hard things. Every day free adds up.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.85))
+        HStack(alignment: .top, spacing: 14) {
+            IconBadge(systemImage: "sparkles", tint: Palette.violet, size: 40)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Some wins can't be counted")
+                    .font(.cardTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                Text("More calm, more control, and proof you can do hard things. Every day free adds up.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
-        .background(theme.gradient, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .glassSurface(cornerRadius: 26, tint: Palette.violet)
         .accessibilityElement(children: .combine)
     }
 
@@ -135,19 +149,20 @@ struct OnboardingProjectionStep: View {
         let preview = answers.milestonePreview(now: now)
         return HStack(spacing: 14) {
             Image(systemName: preview?.milestone.symbol ?? "crown.fill")
-                .font(.title2)
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
-                .background(theme.gradient, in: Circle())
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.inkText)
+                .frame(width: 48, height: 48)
+                .background(Brand.gradient, in: Circle())
+                .shadow(color: Palette.amber.opacity(0.45), radius: 10)
                 .accessibilityHidden(true)
             Text(milestoneText(preview))
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
         .padding(16)
-        .onboardingPanel()
+        .glassSurface(cornerRadius: 22)
         .accessibilityElement(children: .combine)
     }
 
@@ -189,6 +204,7 @@ struct OnboardingProjectionStep: View {
     }
 }
 
+/// A yearly figure in its role color (time is sky, units are amber) on a glass tile.
 private struct ProjectionTile: View {
     let systemImage: String
     let caption: Text
@@ -198,27 +214,25 @@ private struct ProjectionTile: View {
     let accessibilityText: Text
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
+        VStack(alignment: .leading, spacing: 8) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 32)
             caption
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Palette.textSecondary)
             Text(value)
-                .font(.title.bold())
+                .font(.display(34))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
                 .contentTransition(.numericText())
-                .foregroundStyle(.white)
+                .foregroundStyle(tint)
             unit
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Palette.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .onboardingPanel()
+        .glassSurface(cornerRadius: 22, tint: tint)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
@@ -226,7 +240,7 @@ private struct ProjectionTile: View {
 
 #Preview {
     ZStack {
-        Brand.night.ignoresSafeArea()
+        DawnBackground(glow: 0.5)
         OnboardingProjectionStep(answers: .preview) {}
     }
     .environment(\.colorScheme, .dark)

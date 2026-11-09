@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// "What did it cost you?": money and time per day, prefilled from the preset.
+/// "What did it cost you?": money and time per day, prefilled from the preset. Each figure keeps its color
+/// everywhere in the app: money is mint, time is sky, units are amber.
 struct OnboardingCostStep: View {
     @Binding var answers: OnboardingAnswers
     let onContinue: () -> Void
@@ -17,8 +18,6 @@ struct OnboardingCostStep: View {
         self.onContinue = onContinue
     }
 
-    private var tint: LinearGradient { answers.theme.gradient }
-
     var body: some View {
         OnboardingStepLayout(
             title: Text("What did it cost you?"),
@@ -28,6 +27,7 @@ struct OnboardingCostStep: View {
                 numberRow(
                     Text("Money per day"),
                     systemImage: "banknote.fill",
+                    tint: Palette.money,
                     text: $answers.draft.costText,
                     prefix: currencySymbol,
                     suffix: nil,
@@ -36,6 +36,7 @@ struct OnboardingCostStep: View {
                 numberRow(
                     Text("Minutes per day"),
                     systemImage: "clock.fill",
+                    tint: Palette.time,
                     text: $answers.draft.minutesText,
                     prefix: nil,
                     suffix: Text("min"),
@@ -45,6 +46,7 @@ struct OnboardingCostStep: View {
                     numberRow(
                         Text("\(answers.draft.unitName.localizedCapitalized) per day"),
                         systemImage: "number",
+                        tint: Palette.units,
                         text: $answers.draft.unitsText,
                         prefix: nil,
                         suffix: nil,
@@ -53,7 +55,7 @@ struct OnboardingCostStep: View {
                 }
                 Text("Leave a field empty if it doesn't apply. You can change this anytime.")
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Palette.textSecondary)
                     .padding(.top, 4)
             }
         } footer: {
@@ -62,44 +64,44 @@ struct OnboardingCostStep: View {
                 Haptics.tap()
                 onContinue()
             }
-            .buttonStyle(PrimaryButtonStyle(gradient: tint))
+            .buttonStyle(PrimaryButtonStyle())
         }
     }
 
     private func numberRow(
         _ title: Text,
         systemImage: String,
+        tint: Color,
         text: Binding<String>,
         prefix: String?,
         suffix: Text?,
         field: Field
     ) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.headline)
-                .foregroundStyle(tint)
-                .frame(width: 28)
-                .accessibilityHidden(true)
+            IconBadge(systemImage: systemImage, tint: tint, size: 36)
             title
-                .font(.headline)
-                .foregroundStyle(.white)
+                .font(.cardTitle)
+                .foregroundStyle(Palette.textPrimary)
             Spacer(minLength: 8)
             if let prefix {
                 Text(prefix)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .foregroundStyle(tint)
                     .accessibilityHidden(true)
             }
             TextField("0", text: text)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
-                .font(.title3.weight(.semibold).monospacedDigit())
-                .foregroundStyle(.white)
-                .frame(maxWidth: 90)
+                .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
+                .foregroundStyle(Palette.textPrimary)
+                .tint(tint)
+                .frame(maxWidth: 96)
                 .focused($focusedField, equals: field)
                 .accessibilityLabel(title)
             if let suffix {
                 suffix
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.textSecondary)
                     .accessibilityHidden(true)
             }
         }
@@ -119,7 +121,7 @@ struct OnboardingCostStep: View {
 
 #Preview {
     ZStack {
-        Brand.night.ignoresSafeArea()
+        DawnBackground(glow: 0.3)
         OnboardingCostStep(answers: .constant(.preview)) {}
     }
     .environment(\.colorScheme, .dark)

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The full-screen "milestone unlocked" moment shown when the app opens after a streak checkpoint.
+/// The full-screen "milestone unlocked" moment shown when the app opens after a streak checkpoint: a sunrise
+/// bursting behind the habit's orb, the win in dawn gold, and the numbers behind it.
 /// Sharing from the high point turns a personal win into word of mouth.
 struct MilestoneCelebrationView: View {
     let celebration: MilestoneCelebration
@@ -8,17 +9,23 @@ struct MilestoneCelebrationView: View {
 
     @AppStorage(AppSettings.Keys.currencyCode) private var currencyCode = AppSettings.defaultCurrencyCode
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 38
 
     @State private var hasAppeared = false
     @State private var showsDetails = false
     @State private var showingShare = false
+
+    init(celebration: MilestoneCelebration, onDone: @escaping () -> Void) {
+        self.celebration = celebration
+        self.onDone = onDone
+    }
 
     private var habit: Habit { celebration.habit }
     private var milestone: Milestone { celebration.milestone }
 
     var body: some View {
         ZStack {
-            CelebrationBackground(theme: habit.theme)
+            CelebrationBackground()
 
             GeometryReader { proxy in
                 ScrollView {
@@ -34,9 +41,8 @@ struct MilestoneCelebrationView: View {
                 actions
             }
 
-            if !reduceMotion {
-                ConfettiView()
-            }
+            // Falls with motion; with Reduce Motion it only fades in and out.
+            ConfettiView()
         }
         .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showingShare) {
@@ -48,21 +54,21 @@ struct MilestoneCelebrationView: View {
     // MARK: Content
 
     private var hero: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 26) {
             CelebrationBadge(
                 emoji: habit.emoji,
                 symbol: milestone.symbol,
-                theme: habit.theme,
+                dawn: dawnLevel,
                 isVisible: hasAppeared || reduceMotion
             )
 
-            VStack(spacing: 24) {
+            VStack(spacing: 22) {
                 headline
                 CelebrationStatsRow(stats: statItems)
                 Text(CelebrationCenter.encouragement(for: milestone))
-                    .font(.title3.weight(.medium))
+                    .font(.system(.title3, design: .rounded).weight(.medium))
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .opacity(showsDetails || reduceMotion ? 1 : 0)
@@ -71,15 +77,20 @@ struct MilestoneCelebrationView: View {
     }
 
     private var headline: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Text("MILESTONE UNLOCKED")
                 .font(.caption.weight(.heavy))
                 .tracking(2)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Palette.sun)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Palette.sun.opacity(0.12), in: Capsule())
+                .overlay(Capsule().strokeBorder(Palette.sun.opacity(0.3), lineWidth: 1))
             Text("\(milestone.title) free from \(habit.name)!")
-                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
+                .font(.system(size: titleSize, weight: .heavy, design: .rounded))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.white)
+                .foregroundStyle(Brand.dawn)
+                .shadow(color: Palette.ember.opacity(0.35), radius: 16, y: 4)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
@@ -94,8 +105,7 @@ struct MilestoneCelebrationView: View {
             } label: {
                 Label("Share my progress", systemImage: "square.and.arrow.up")
             }
-            .buttonStyle(PrimaryButtonStyle(gradient: habit.theme.gradient))
-            .shadow(color: habit.theme.accent.opacity(0.4), radius: 14, y: 6)
+            .buttonStyle(PrimaryButtonStyle())
 
             Button("Keep going") {
                 Haptics.tap()
@@ -111,12 +121,19 @@ struct MilestoneCelebrationView: View {
         .background {
             // Lets long content (large Dynamic Type) scroll softly under the buttons.
             LinearGradient(
-                colors: [CelebrationBackground.baseColor.opacity(0), CelebrationBackground.baseColor],
+                colors: [CelebrationBackground.fadeColor.opacity(0), CelebrationBackground.fadeColor.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .center
             )
             .ignoresSafeArea()
         }
+    }
+
+    /// Bigger milestones show more sunrise on the orb: from early light at 1 hour to full gold at 5 years.
+    private var dawnLevel: Double {
+        let index = Milestone.all.firstIndex(of: milestone) ?? 0
+        let fraction = Double(index + 1) / Double(max(Milestone.all.count, 1))
+        return 0.35 + 0.65 * fraction
     }
 
     /// Money and time when the habit tracks them; otherwise cravings beaten or the streak itself.
@@ -128,7 +145,8 @@ struct MilestoneCelebrationView: View {
                 id: "money",
                 value: MoneyFormatter.rounded(stats.moneySaved, code: currencyCode),
                 title: String(localized: "Money saved"),
-                systemImage: "banknote.fill"
+                systemImage: "banknote.fill",
+                tint: Palette.money
             ))
         }
         if stats.minutesReclaimed >= 1 {
@@ -136,7 +154,8 @@ struct MilestoneCelebrationView: View {
                 id: "time",
                 value: DurationFormatter.minutes(stats.minutesReclaimed),
                 title: String(localized: "Time reclaimed"),
-                systemImage: "clock.fill"
+                systemImage: "clock.fill",
+                tint: Palette.time
             ))
         }
         let beaten = habit.resistedUrgeCount
@@ -145,7 +164,8 @@ struct MilestoneCelebrationView: View {
                 id: "cravings",
                 value: beaten.formatted(),
                 title: String(localized: "Cravings beaten"),
-                systemImage: "shield.lefthalf.filled"
+                systemImage: "shield.lefthalf.filled",
+                tint: Palette.cravings
             ))
         }
         if items.isEmpty {
@@ -153,7 +173,8 @@ struct MilestoneCelebrationView: View {
                 id: "streak",
                 value: DurationFormatter.compact(stats.currentStreak),
                 title: String(localized: "Free for"),
-                systemImage: "timer"
+                systemImage: "timer",
+                tint: Palette.streak
             ))
         }
         return items

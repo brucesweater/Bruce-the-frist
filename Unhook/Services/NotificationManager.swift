@@ -25,10 +25,17 @@ enum NotificationManager {
         }
     }
 
+    /// UserDefaults flag: a 30-Day Reset is running, so the daily reminder mentions today's step.
+    static let challengeActiveKey = "notifications.challengeActive"
+
     static func scheduleDailyReminder(hour: Int, minute: Int) {
         let content = UNMutableNotificationContent()
         content.title = String(localized: "Take today's pledge 🤝")
-        content.body = String(localized: "One day at a time. Commit to staying free today.")
+        if UserDefaults.standard.bool(forKey: challengeActiveKey) {
+            content.body = String(localized: "One day at a time. Today's 30-Day Reset step is ready too.")
+        } else {
+            content.body = String(localized: "One day at a time. Commit to staying free today.")
+        }
         content.sound = .default
 
         var components = DateComponents()
@@ -40,6 +47,19 @@ enum NotificationManager {
 
     static func cancelDailyReminder() {
         center.removePendingNotificationRequests(withIdentifiers: [dailyReminderID])
+    }
+
+    /// Keeps the daily reminder's wording in step with the 30-Day Reset. Reschedules it (at the same time) only
+    /// when the state changes and the reminder is on.
+    static func setChallengeActive(_ isActive: Bool) {
+        #if DEBUG
+        if UITestSupport.isActive { return }
+        #endif
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: challengeActiveKey) != isActive else { return }
+        defaults.set(isActive, forKey: challengeActiveKey)
+        guard defaults.bool(forKey: AppSettings.Keys.reminderEnabled) else { return }
+        scheduleDailyReminder(hour: AppSettings.reminderHour, minute: AppSettings.reminderMinute)
     }
 
     /// Replaces any scheduled milestone alerts for `habit` with ones for its current streak.

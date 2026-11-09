@@ -5,6 +5,7 @@ struct OnboardingReasonsStep: View {
     @Binding var answers: OnboardingAnswers
     let onContinue: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isCustomFocused: Bool
 
     init(answers: Binding<OnboardingAnswers>, onContinue: @escaping () -> Void) {
@@ -12,8 +13,8 @@ struct OnboardingReasonsStep: View {
         self.onContinue = onContinue
     }
 
-    private var tint: LinearGradient { answers.theme.gradient }
     private var suggestions: [String] { answers.draft.suggestedReasons }
+    private var hasCustomReason: Bool { !answers.trimmedCustomReason.isEmpty }
 
     var body: some View {
         OnboardingStepLayout(title: Text("Why do you want to quit?"), subtitle: subtitle) {
@@ -26,10 +27,10 @@ struct OnboardingReasonsStep: View {
                 if !answers.canAddReason {
                     Text("That's \(OnboardingAnswers.maxReasons). Tap one to swap it out.")
                         .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: answers.selectedReasons)
+            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: answers.selectedReasons)
         } footer: {
             Button {
                 isCustomFocused = false
@@ -38,7 +39,7 @@ struct OnboardingReasonsStep: View {
             } label: {
                 Text(answers.reasons.isEmpty ? "Skip for now" : "Continue")
             }
-            .buttonStyle(PrimaryButtonStyle(gradient: tint))
+            .buttonStyle(PrimaryButtonStyle())
         }
     }
 
@@ -58,37 +59,42 @@ struct OnboardingReasonsStep: View {
             HStack(spacing: 10) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
                     .font(.headline)
+                    .foregroundStyle(isSelected ? Palette.sun : Palette.textSecondary)
                     .accessibilityHidden(true)
                 Text(reason)
                     .font(.body.weight(.medium))
+                    .foregroundStyle(Palette.textPrimary)
                     .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(.white)
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 13)
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .onboardingPanel(cornerRadius: 18, isHighlighted: isSelected, tint: tint)
+            .onboardingPanel(cornerRadius: 18, isHighlighted: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableCardStyle())
         .disabled(!isAvailable)
         .opacity(isAvailable ? 1 : 0.45)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var customField: some View {
-        TextField("Add your own reason (optional)", text: $answers.customReason)
-            .foregroundStyle(.white)
-            .submitLabel(.done)
-            .focused($isCustomFocused)
-            .onSubmit { isCustomFocused = false }
-            .padding(16)
-            .onboardingPanel(
-                cornerRadius: 18,
-                isHighlighted: isCustomFocused || !answers.trimmedCustomReason.isEmpty,
-                tint: tint
-            )
-            .disabled(!answers.canEditCustomReason)
-            .opacity(answers.canEditCustomReason ? 1 : 0.45)
+        HStack(spacing: 12) {
+            Image(systemName: "pencil")
+                .font(.headline)
+                .foregroundStyle(isCustomFocused || hasCustomReason ? Palette.sun : Palette.textTertiary)
+                .accessibilityHidden(true)
+            TextField("Add your own reason (optional)", text: $answers.customReason)
+                .foregroundStyle(Palette.textPrimary)
+                .tint(Palette.amber)
+                .submitLabel(.done)
+                .focused($isCustomFocused)
+                .onSubmit { isCustomFocused = false }
+        }
+        .padding(16)
+        .onboardingPanel(cornerRadius: 18, isHighlighted: isCustomFocused || hasCustomReason)
+        .disabled(!answers.canEditCustomReason)
+        .opacity(answers.canEditCustomReason ? 1 : 0.45)
     }
 
     private func toggle(_ reason: String) {
@@ -102,7 +108,7 @@ struct OnboardingReasonsStep: View {
 
 #Preview {
     ZStack {
-        Brand.night.ignoresSafeArea()
+        DawnBackground(glow: 0.4)
         OnboardingReasonsStep(answers: .constant(.preview)) {}
     }
     .environment(\.colorScheme, .dark)

@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Full-screen lock shown while Face ID (or the passcode) protects Unhook.
+/// Full-screen lock shown while Face ID (or the passcode) protects Unhook: a calm dawn orb on the night sky.
 struct LockView: View {
     let isAuthenticating: Bool
     let errorMessage: String?
@@ -19,14 +19,13 @@ struct LockView: View {
 
     var body: some View {
         ZStack {
-            Brand.night
-                .ignoresSafeArea()
+            DawnBackground(glow: 0.14)
 
             VStack(spacing: 0) {
                 Spacer(minLength: 24)
-                AppLockIcon()
+                AppLockEmblem()
                 header
-                    .padding(.top, 28)
+                    .padding(.top, 18)
                 Spacer(minLength: 24)
                 footer
             }
@@ -42,12 +41,12 @@ struct LockView: View {
     private var header: some View {
         VStack(spacing: 10) {
             Text("Unhook is locked")
-                .font(.title2.bold())
-                .foregroundStyle(.white)
+                .font(.system(.title, design: .rounded).weight(.bold))
+                .foregroundStyle(Palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("Your progress stays private. Unlock with \(method.inlineName) to continue.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Palette.textSecondary)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
@@ -56,12 +55,20 @@ struct LockView: View {
     private var footer: some View {
         VStack(spacing: 16) {
             if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.opacity)
+                Label {
+                    Text(errorMessage)
+                } icon: {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(Palette.rose)
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Palette.textPrimary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassSurface(cornerRadius: 16, tint: Palette.rose)
+                .transition(.opacity)
             }
 
             Button(action: onUnlock) {
@@ -70,7 +77,7 @@ struct LockView: View {
                         .opacity(isAuthenticating ? 0 : 1)
                     if isAuthenticating {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Palette.inkText)
                     }
                 }
             }
@@ -81,20 +88,26 @@ struct LockView: View {
             Link(destination: Self.helplineURL) {
                 Label("Need help right now? Find a helpline", systemImage: "lifepreserver.fill")
                     .font(.footnote.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
     }
 }
 
 /// Covers the app while it's in the app switcher or briefly inactive, so its snapshot never shows the user's data.
+/// Same night sky and orb as the lock screen, held still.
 struct PrivacyShieldView: View {
     var body: some View {
         ZStack {
-            Brand.night
-                .ignoresSafeArea()
-            AppLockIcon()
+            DawnBackground(glow: 0.14)
+            VStack(spacing: 16) {
+                AppLockEmblem(animated: false)
+                Text("Unhook")
+                    .font(.system(.title2, design: .rounded).weight(.bold))
+                    .foregroundStyle(Palette.textPrimary)
+            }
         }
+        .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Unhook")
     }
@@ -115,20 +128,28 @@ struct AppLockCover: View {
     }
 }
 
-/// The app's current home-screen icon, glowing softly.
-struct AppLockIcon: View {
-    @ScaledMetric(relativeTo: .largeTitle) private var scaledSize: CGFloat = 88
+/// The lock screen's centerpiece: a calm dawn orb with a lock resting on it. Breathes gently unless
+/// `animated` is false or Reduce Motion is on.
+struct AppLockEmblem: View {
+    let animated: Bool
 
-    private var size: CGFloat { min(scaledSize, 140) }
+    @ScaledMetric(relativeTo: .largeTitle) private var scaledSize: CGFloat = 128
+
+    init(animated: Bool = true) {
+        self.animated = animated
+    }
+
+    private var size: CGFloat { min(scaledSize, 180) }
 
     var body: some View {
-        Image(AppIconOption(alternateIconName: UIApplication.shared.alternateIconName).previewImageName)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-            .shadow(color: Brand.colors[0].opacity(0.5), radius: 24, y: 8)
-            .accessibilityHidden(true)
+        ZStack {
+            DawnOrb(progress: 0.32, size: size, animated: animated)
+            Image(systemName: "lock.fill")
+                .font(.system(size: size * 0.26, weight: .semibold))
+                .foregroundStyle(Palette.textPrimary)
+                .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+        }
+        .accessibilityHidden(true)
     }
 }
 
