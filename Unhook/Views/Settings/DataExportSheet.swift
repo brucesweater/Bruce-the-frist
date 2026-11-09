@@ -19,7 +19,7 @@ struct DataExportSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 22) {
                     header
                     fileRow
                     shareButtons
@@ -29,8 +29,9 @@ struct DataExportSheet: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background(Color(.systemGroupedBackground))
+            .dawnScreenBackground(glow: 0.45)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -41,36 +42,40 @@ struct DataExportSheet: View {
     }
 
     private var header: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.largeTitle)
+                .font(.largeTitle.weight(.semibold))
+                .imageScale(.large)
                 .foregroundStyle(Brand.gradient)
+                .shadow(color: Palette.amber.opacity(0.5), radius: 16)
                 .accessibilityHidden(true)
             Text("Your data is ready")
-                .font(.title2.bold())
+                .font(.system(.title2, design: .rounded).weight(.bold))
+                .foregroundStyle(Palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("Every habit, slip, craving, pledge and savings goal in one file. It stays on your device until you choose where to send it.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
 
     private var fileRow: some View {
-        Label {
+        HStack(spacing: 12) {
+            IconBadge(systemImage: "doc.text.fill", tint: Palette.sky, size: 34)
             Text(files.json.lastPathComponent)
                 .font(.footnote.monospaced())
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-        } icon: {
-            Image(systemName: "doc.text.fill")
-                .foregroundStyle(Brand.gradient)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glassSurface(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
     }
 
     private var shareButtons: some View {

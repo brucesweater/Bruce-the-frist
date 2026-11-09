@@ -1,11 +1,9 @@
 import SwiftUI
 import UIKit
 
-/// A grid of home-screen icons. The classic icon is always free; the alternates are a Pro perk, so tapping one
-/// without Pro opens the paywall instead.
+/// A grid of home-screen icons. Every icon is free.
 struct AppIconPicker: View {
-    @Environment(Store.self) private var store
-    @Environment(AppRouter.self) private var router
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
 
     @State private var selection: AppIconOption = .standard
@@ -19,7 +17,8 @@ struct AppIconPicker: View {
                 iconGrid
             } else {
                 Text("This device can't change Unhook's icon.")
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
         .onAppear {
@@ -39,6 +38,7 @@ struct AppIconPicker: View {
             }
         }
         .padding(.vertical, 8)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.75), value: selection)
     }
 
     private var columns: [GridItem] {
@@ -49,15 +49,14 @@ struct AppIconPicker: View {
 
     private func iconButton(for option: AppIconOption) -> some View {
         let isSelected = option == selection
-        let isLocked = requiresPro(option)
         return Button {
             select(option)
         } label: {
             VStack(spacing: 8) {
-                iconImage(for: option, isSelected: isSelected, isLocked: isLocked)
+                iconImage(for: option, isSelected: isSelected)
                 Text(option.title)
-                    .font(.caption.weight(isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .font(.system(.caption, design: .rounded).weight(isSelected ? .bold : .medium))
+                    .foregroundStyle(isSelected ? Palette.textPrimary : Palette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -67,11 +66,11 @@ struct AppIconPicker: View {
         // Plain style keeps each icon its own tap target inside the Form row.
         .buttonStyle(.plain)
         .disabled(pendingOption != nil)
-        .accessibilityValue(accessibilityValue(isSelected: isSelected, isLocked: isLocked))
+        .accessibilityValue(isSelected ? String(localized: "Current icon") : "")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func iconImage(for option: AppIconOption, isSelected: Bool, isLocked: Bool) -> some View {
+    private func iconImage(for option: AppIconOption, isSelected: Bool) -> some View {
         let shape = RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous)
         return Image(option.previewImageName)
             .resizable()
@@ -79,49 +78,41 @@ struct AppIconPicker: View {
             .frame(width: iconSize, height: iconSize)
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(
-                    isSelected ? Color.accentColor : Color.primary.opacity(0.1),
-                    lineWidth: isSelected ? 3 : 1
-                )
+                shape.strokeBorder(Color.white.opacity(isSelected ? 0 : 0.12), lineWidth: 1)
             }
+            .padding(4)
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: iconSize * 0.22 + 4, style: .continuous)
+                        .strokeBorder(Brand.gradient, lineWidth: 2.5)
+                }
+            }
+            .shadow(color: Palette.amber.opacity(isSelected ? 0.45 : 0), radius: 12)
             .overlay {
                 if pendingOption == option {
                     ProgressView()
+                        .tint(.white)
                         .padding(8)
                         .background(.ultraThinMaterial, in: Circle())
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if isLocked {
-                    lockBadge
-                        .offset(x: 6, y: -6)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
                 if isSelected {
                     checkmarkBadge
-                        .offset(x: 6, y: 6)
+                        .offset(x: 4, y: 4)
                 }
             }
-            .padding(6)
+            .scaleEffect(isSelected ? 1.04 : 1)
             .accessibilityHidden(true)
     }
 
-    private var lockBadge: some View {
-        Image(systemName: "lock.fill")
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(.white)
+    private var checkmarkBadge: some View {
+        Image(systemName: "checkmark")
+            .font(.caption2.weight(.heavy))
+            .foregroundStyle(Palette.inkText)
             .padding(5)
             .background(Brand.gradient, in: Circle())
-            .overlay(Circle().stroke(Color(.secondarySystemGroupedBackground), lineWidth: 2))
-    }
-
-    private var checkmarkBadge: some View {
-        Image(systemName: "checkmark.circle.fill")
-            .font(.title3)
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(.white, Color.accentColor)
-            .background(Circle().fill(Color(.secondarySystemGroupedBackground)).padding(-2))
+            .overlay(Circle().strokeBorder(Palette.surface, lineWidth: 2))
     }
 
     // MARK: State
@@ -136,20 +127,6 @@ struct AppIconPicker: View {
         }
     }
 
-    private func requiresPro(_ option: AppIconOption) -> Bool {
-        option != .standard && !store.isPro
-    }
-
-    private func accessibilityValue(isSelected: Bool, isLocked: Bool) -> String {
-        if isSelected {
-            return String(localized: "Current icon")
-        }
-        if isLocked {
-            return String(localized: "Requires Unhook Pro")
-        }
-        return ""
-    }
-
     private func syncSelection() {
         selection = AppIconOption(alternateIconName: UIApplication.shared.alternateIconName)
     }
@@ -158,11 +135,6 @@ struct AppIconPicker: View {
 
     private func select(_ option: AppIconOption) {
         guard option != selection, pendingOption == nil else { return }
-        guard !requiresPro(option) else {
-            Haptics.tap()
-            router.showPaywall(.appIcons)
-            return
-        }
         Haptics.selection()
         pendingOption = option
         Task { await apply(option) }
@@ -185,6 +157,8 @@ struct AppIconPicker: View {
         Section("App icon") {
             AppIconPicker()
         }
+        .listRowBackground(Palette.surface.opacity(0.72))
     }
+    .dawnScreenBackground()
     .previewEnvironment()
 }

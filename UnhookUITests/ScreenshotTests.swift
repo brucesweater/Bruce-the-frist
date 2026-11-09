@@ -175,6 +175,8 @@ final class ScreenshotTests: XCTestCase {
             "-hasOnboarded", onboarded ? "YES" : "NO",
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US",
+            // Morning, so Today greets with "Good morning" in screenshots wherever the CI machine is.
+            "-UITestHour", "10",
         ]
         if seed {
             app.launchArguments.append("-UITestSeed")

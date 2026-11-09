@@ -28,13 +28,17 @@ struct SettingsView: View {
     @State private var notificationsDenied = false
     @State private var isRestoring = false
     @State private var showingManageSubscriptions = false
+    @State private var showingPrivacyPolicy = false
     @State private var isEnablingAppLock = false
     /// Filled in on appear; asking LocalAuthentication on every init of this view would be wasted work.
     @State private var appLockMethod: AppLockMethod = .faceID
     @State private var canUseAppLock = true
     @State private var exportFiles: DataExportFiles?
     @State private var alert: SettingsAlert?
+    /// True once the big "Settings" title has scrolled away, so the small one in the navigation bar takes over.
+    @State private var showsInlineTitle = false
     @ScaledMetric(relativeTo: .title3) private var upgradeIconSize: CGFloat = 44
+    @ScaledMetric(relativeTo: .headline) private var founderPhotoSize: CGFloat = 52
 
     /// A one-button alert: restore results, export and lock errors.
     private struct SettingsAlert {
@@ -47,14 +51,16 @@ struct SettingsView: View {
         "CHF", "SEK", "NOK", "SGD", "HKD", "BRL", "MXN", "ZAR", "AED", "TRY",
     ]
 
+    /// Kept outside the store by the rank and achievement features, and erased with everything else.
+    private static let engagementDefaultsKeys = ["lastSeenRankLevel", "achievementTracker.unlocked"]
+
     var body: some View {
         NavigationStack {
-            form
-                .navigationTitle("Settings")
+            styledForm
                 .confirmationDialog("Erase everything?", isPresented: $confirmingErase, titleVisibility: .visible) {
                     Button("Erase all data", role: .destructive, action: eraseAll)
                 } message: {
-                    Text("All habits, streaks, pledges, savings goals and history will be permanently deleted.")
+                    Text("All habits, streaks, pledges, savings goals, challenge progress and history will be permanently deleted.")
                 }
                 .alert(alert?.title ?? "", isPresented: isShowingAlert, presenting: alert) { _ in
                     Button("OK", role: .cancel) {}
@@ -64,21 +70,49 @@ struct SettingsView: View {
                 .sheet(item: $exportFiles) { files in
                     DataExportSheet(files: files)
                 }
+                .sheet(isPresented: $showingPrivacyPolicy) {
+                    PrivacyPolicySheet()
+                }
                 .manageSubscriptionsSheet(isPresented: $showingManageSubscriptions)
                 .onAppear {
                     refreshAppLockAvailability()
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    // The user may have set up Face ID or a passcode in the Settings app meanwhile.
+                    // The user may have set up Face ID, a passcode or notifications in the Settings app meanwhile.
                     if phase == .active {
                         refreshAppLockAvailability()
+                        Task { await refreshNotificationStatus() }
                     }
                 }
         }
     }
 
+    private var styledForm: some View {
+        form
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    inlineTitle
+                }
+            }
+            .fadesContentUnderNavigationBar()
+            .task {
+                await refreshNotificationStatus()
+            }
+            .onChange(of: reminderEnabled) { _, enabled in
+                Task { await updateReminder(enabled: enabled) }
+            }
+            .onChange(of: milestoneAlertsEnabled) { _, enabled in
+                Task { await updateMilestoneAlerts(enabled: enabled) }
+            }
+    }
+
     private var form: some View {
         Form {
+            titleSection
+            founderSection
             if Monetization.isProEnabled {
                 proSection
             }
@@ -89,6 +123,74 @@ struct SettingsView: View {
             privacySection
             dataSection
             aboutSection
+        }
+        .tint(Palette.amber)
+        .dawnScreenBackground()
+    }
+
+    // MARK: Header
+
+    private var titleSection: some View {
+        Section {
+            Text("Settings")
+                .font(.screenTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0))
+                .listRowBackground(Color.clear)
+                .onAppear { showsInlineTitle = false }
+                .onDisappear { showsInlineTitle = true }
+        }
+        .listSectionSpacing(.compact)
+    }
+
+    private var inlineTitle: some View {
+        Text("Settings")
+            .font(.system(.headline, design: .rounded))
+            .foregroundStyle(Palette.textPrimary)
+            .opacity(showsInlineTitle ? 1 : 0)
+            .animation(.easeInOut(duration: 0.2), value: showsInlineTitle)
+            .accessibilityHidden(!showsInlineTitle)
+    }
+
+    private var founderSection: some View {
+        Section {
+            NavigationLink {
+                FounderView()
+            } label: {
+                founderCard
+            }
+            .accessibilityIdentifier("founderRow")
+            .listRowBackground(founderRowBackground)
+        }
+    }
+
+    private var founderCard: some View {
+        HStack(spacing: 14) {
+            FounderAvatar(size: founderPhotoSize)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Made by Bruce Gao")
+                    .font(.cardTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                Text("Meet the founder")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.sun)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var founderRowBackground: some View {
+        ZStack {
+            Palette.surface.opacity(0.72)
+            LinearGradient(
+                colors: [Palette.amber.opacity(0.2), Palette.rose.opacity(0.1), Palette.violet.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
     }
 
@@ -102,7 +204,7 @@ struct SettingsView: View {
                     Button {
                         showingManageSubscriptions = true
                     } label: {
-                        Label("Manage subscription", systemImage: "creditcard")
+                        SettingsRowLabel(title: "Manage subscription", systemImage: "creditcard.fill", tint: Palette.sky)
                     }
                 }
             } else {
@@ -110,124 +212,151 @@ struct SettingsView: View {
                 restoreButton
             }
         } header: {
-            Text("Unhook Pro")
+            SettingsSectionHeader(title: "Unhook Pro", systemImage: "crown.fill", tint: Palette.amber)
         }
+        .settingsGlassRows()
     }
 
     private var remindersSection: some View {
         Section {
-            Toggle("Daily pledge reminder", isOn: $reminderEnabled)
-            if reminderEnabled {
-                DatePicker("Time", selection: reminderTime, displayedComponents: .hourAndMinute)
+            Toggle(isOn: $reminderEnabled) {
+                SettingsRowLabel(title: "Daily pledge reminder", systemImage: "bell.badge.fill", tint: Palette.amber)
             }
-            Toggle("Milestone alerts", isOn: $milestoneAlertsEnabled)
+            if reminderEnabled {
+                DatePicker(selection: reminderTime, displayedComponents: .hourAndMinute) {
+                    SettingsRowLabel(title: "Time", systemImage: "clock.fill", tint: Palette.time)
+                }
+            }
+            Toggle(isOn: $milestoneAlertsEnabled) {
+                SettingsRowLabel(title: "Milestone alerts", systemImage: "trophy.fill", tint: Palette.celebrate)
+            }
         } header: {
-            Text("Reminders")
+            SettingsSectionHeader(title: "Reminders", systemImage: "bell.fill", tint: Palette.amber)
         } footer: {
             if notificationsDenied {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Notifications are off for Unhook, so reminders and milestone alerts can't arrive.")
+                        .foregroundStyle(Palette.textSecondary)
                     Button("Turn on notifications") {
                         Task { await turnOnNotifications() }
                     }
                     .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.amber)
                 }
+                .font(.footnote)
             }
         }
-        .task {
-            await refreshNotificationStatus()
-        }
-        .onChange(of: reminderEnabled) { _, enabled in
-            Task { await updateReminder(enabled: enabled) }
-        }
-        .onChange(of: milestoneAlertsEnabled) { _, enabled in
-            Task { await updateMilestoneAlerts(enabled: enabled) }
-        }
+        .settingsGlassRows()
     }
 
     private var preferencesSection: some View {
-        Section("Preferences") {
-            Picker("Currency", selection: $currencyCode) {
+        Section {
+            Picker(selection: $currencyCode) {
                 ForEach(currencyOptions, id: \.self) { code in
                     Text(currencyLabel(code)).tag(code)
                 }
+            } label: {
+                SettingsRowLabel(title: "Currency", systemImage: "banknote.fill", tint: Palette.money)
             }
-            Toggle("Haptics", isOn: $hapticsEnabled)
+            Toggle(isOn: $hapticsEnabled) {
+                SettingsRowLabel(title: "Haptics", systemImage: "iphone.radiowaves.left.and.right", tint: Palette.violet)
+            }
+        } header: {
+            SettingsSectionHeader(title: "Preferences", systemImage: "slider.horizontal.3", tint: Palette.sky)
         }
+        .settingsGlassRows()
     }
 
     private var appIconSection: some View {
         Section {
             AppIconPicker()
         } header: {
-            HStack(spacing: 6) {
-                Text("App icon")
-                if !store.isPro {
-                    ProBadge()
-                }
-            }
+            SettingsSectionHeader(title: "App icon", systemImage: "app.badge.fill", tint: Palette.violet)
+        } footer: {
+            footerText(Text("Pick how Unhook looks on your Home Screen."))
         }
+        .settingsGlassRows()
     }
 
     private var supportSection: some View {
         Section {
-            Link(destination: URL(string: "https://findahelpline.com")!) {
-                Label("Find a free helpline near you", systemImage: "lifepreserver.fill")
+            Link(destination: FounderLinks.supportEmail) {
+                SettingsRowLabel(title: "Contact support", systemImage: "envelope.fill", tint: Palette.sky, accessory: .external)
             }
-            ShareLink(item: "I'm breaking my bad habits with Unhook, one day at a time. 💪") {
-                Label("Tell a friend", systemImage: "heart.fill")
+            Link(destination: FounderLinks.supportPage) {
+                SettingsRowLabel(title: "Support website", systemImage: "questionmark.circle.fill", tint: Palette.violet, accessory: .external)
+            }
+            Link(destination: FounderLinks.helplines) {
+                SettingsRowLabel(title: "Find a free helpline near you", systemImage: "lifepreserver.fill", tint: Palette.ember, accessory: .external)
+            }
+            ShareLink(item: shareMessage) {
+                SettingsRowLabel(title: "Tell a friend", systemImage: "heart.fill", tint: Palette.rose)
             }
             Button(action: rateApp) {
-                Label("Rate Unhook", systemImage: "star.fill")
+                SettingsRowLabel(title: "Rate Unhook", systemImage: "star.fill", tint: Palette.sun)
             }
         } header: {
-            Text("Support")
+            SettingsSectionHeader(title: "Support", systemImage: "heart.fill", tint: Palette.rose)
         } footer: {
-            Text("Unhook is a self-help tool, not a substitute for professional care. If you're struggling, please reach out to a doctor or a helpline.")
+            footerText(Text("Unhook is a self-help tool, not a substitute for professional care. If you're struggling, please reach out to a doctor or a helpline."))
         }
+        .settingsGlassRows()
     }
 
     private var privacySection: some View {
         Section {
             appLockToggle
             privacyPromise
-            NavigationLink {
-                PrivacyPolicyView()
+            Button {
+                Haptics.tap()
+                showingPrivacyPolicy = true
             } label: {
-                Label("Privacy Policy", systemImage: "hand.raised.fill")
+                SettingsRowLabel(title: "Privacy Policy", systemImage: "hand.raised.fill", tint: Palette.amber, accessory: .chevron)
+            }
+            Link(destination: FounderLinks.privacyPolicy) {
+                SettingsRowLabel(title: "Privacy Policy website", systemImage: "globe", tint: Palette.sky, accessory: .external)
             }
         } header: {
-            Text("Privacy & security")
+            SettingsSectionHeader(title: "Privacy & security", systemImage: "lock.shield.fill", tint: Palette.mint)
         } footer: {
-            Text(appLockFooter)
+            footerText(Text(appLockFooter))
         }
+        .settingsGlassRows()
     }
 
     private var dataSection: some View {
         Section {
             Button(action: exportData) {
-                Label("Export my data", systemImage: "square.and.arrow.up")
+                SettingsRowLabel(title: "Export my data", systemImage: "square.and.arrow.up", tint: Palette.sky)
             }
             Button(role: .destructive) {
                 confirmingErase = true
             } label: {
-                Label("Erase all data", systemImage: "trash")
+                SettingsRowLabel(title: "Erase all data", systemImage: "trash.fill", tint: Palette.rose, titleColor: Palette.rose)
             }
         } header: {
-            Text("Your data")
+            SettingsSectionHeader(title: "Your data", systemImage: "tray.full.fill", tint: Palette.sky)
         } footer: {
-            Text("Export a copy of everything you've tracked as a file you can save or share. Erasing deletes it all from this device.")
+            footerText(Text("Export a copy of everything you've tracked as a file you can save or share. Erasing deletes it all from this device."))
         }
+        .settingsGlassRows()
     }
 
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: appVersion)
+            LabeledContent {
+                Text(appVersion)
+                    .foregroundStyle(Palette.textSecondary)
+                    .monospacedDigit()
+            } label: {
+                SettingsRowLabel(title: "Version", systemImage: "info.circle.fill", tint: Palette.sky)
+            }
+        } header: {
+            SettingsSectionHeader(title: "About", systemImage: "sparkles", tint: Palette.sun)
         } footer: {
-            Text("Made with 💜 for everyone breaking free.")
-                .frame(maxWidth: .infinity)
-                .padding(.top, 8)
+            madeInIowa
         }
+        .settingsGlassRows()
     }
 
     // MARK: Rows
@@ -235,14 +364,9 @@ struct SettingsView: View {
     private var proActiveRow: some View {
         LabeledContent {
             Text("Active")
-                .foregroundStyle(.green)
+                .foregroundStyle(Palette.mint)
         } label: {
-            Label {
-                Text("Unhook Pro")
-            } icon: {
-                Image(systemName: "crown.fill")
-                    .foregroundStyle(Brand.gradient)
-            }
+            SettingsRowLabel(title: "Unhook Pro", systemImage: "crown.fill", tint: Palette.amber)
         }
     }
 
@@ -254,22 +378,22 @@ struct SettingsView: View {
             HStack(spacing: 14) {
                 Image(systemName: "crown.fill")
                     .font(.title3)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Palette.inkText)
                     .frame(width: upgradeIconSize, height: upgradeIconSize)
                     .background(Brand.gradient, in: RoundedRectangle(cornerRadius: upgradeIconSize * 0.27, style: .continuous))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Upgrade to Pro")
                         .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text("Unlimited habits and goals, deeper insights and new app icons.")
+                        .foregroundStyle(Palette.textPrimary)
+                    Text("Unlimited habits and goals, and deeper insights.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Palette.textTertiary)
                     .accessibilityHidden(true)
             }
             .padding(.vertical, 6)
@@ -281,7 +405,7 @@ struct SettingsView: View {
             Task { await restorePurchases() }
         } label: {
             HStack {
-                Label("Restore purchases", systemImage: "arrow.clockwise")
+                SettingsRowLabel(title: "Restore purchases", systemImage: "arrow.clockwise", tint: Palette.sky)
                 Spacer()
                 if isRestoring {
                     ProgressView()
@@ -293,25 +417,40 @@ struct SettingsView: View {
 
     private var appLockToggle: some View {
         Toggle(isOn: appLockBinding) {
-            Label("Lock with \(appLockMethod.kindName)", systemImage: appLockMethod.systemImage)
+            SettingsRowLabel(title: "Lock with \(appLockMethod.kindName)", systemImage: appLockMethod.systemImage, tint: Palette.violet)
         }
         // Stays switchable while on, so the lock can always be turned off.
         .disabled(isEnablingAppLock || (!canUseAppLock && !appLockEnabled))
     }
 
     private var privacyPromise: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Your data stays on your device")
-                    .font(.subheadline.weight(.semibold))
-                Text("No account, no tracking, no ads. Unhook never sends your habits anywhere.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
-            Image(systemName: "lock.shield.fill")
-                .foregroundStyle(.green)
-        }
+        SettingsRowLabel(
+            title: "Your data stays on your device",
+            systemImage: "lock.shield.fill",
+            tint: Palette.mint,
+            subtitle: "No account, no tracking, no ads. Unhook never sends your habits anywhere."
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private var madeInIowa: some View {
+        Text("Made with \(heartSymbol) in Iowa by Bruce Gao")
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(Palette.textSecondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 12)
+            .accessibilityLabel(Text("Made with love in Iowa by Bruce Gao"))
+    }
+
+    private var heartSymbol: Text {
+        Text(Image(systemName: "heart.fill")).foregroundStyle(Palette.rose)
+    }
+
+    private func footerText(_ text: Text) -> some View {
+        text
+            .font(.footnote)
+            .foregroundStyle(Palette.textSecondary)
     }
 
     // MARK: Helpers
@@ -372,6 +511,10 @@ struct SettingsView: View {
     private func currencyLabel(_ code: String) -> String {
         let name = Locale.current.localizedString(forCurrencyCode: code) ?? code
         return "\(code) · \(name)"
+    }
+
+    private var shareMessage: String {
+        String(localized: "I'm breaking my bad habits with Unhook, one day at a time. 💪")
     }
 
     private var appVersion: String {
@@ -526,10 +669,17 @@ struct SettingsView: View {
         pledges.forEach { context.delete($0) }
         habits.forEach { context.delete($0) }
         savingsGoals.forEach { context.delete($0) }
+        // Daily missions and the 30-day challenge aren't queried here, so fetch them to delete them too.
+        deleteAll(MissionCompletion.self)
+        deleteAll(ChallengeProgress.self)
         do {
             try context.save()
         } catch {
             assertionFailure("Failed to erase data: \(error)")
+        }
+        // Ranks and achievements remember what was already celebrated; start those from scratch as well.
+        for key in Self.engagementDefaultsKeys {
+            UserDefaults.standard.removeObject(forKey: key)
         }
         // An earlier export would still hold everything that was just erased.
         DataExporter.removeExportFiles()
@@ -537,6 +687,90 @@ struct SettingsView: View {
         reminderEnabled = false
         dataResetCount += 1
         Haptics.warning()
+    }
+
+    /// Deletes every saved record of a model type this screen doesn't query.
+    private func deleteAll<Model: PersistentModel>(_ type: Model.Type) {
+        guard let models = try? context.fetch(FetchDescriptor<Model>()) else { return }
+        for model in models {
+            context.delete(model)
+        }
+    }
+}
+
+// MARK: - Row styling
+
+/// A settings row: a tinted icon badge, a title with an optional detail line, and an optional trailing hint.
+private struct SettingsRowLabel: View {
+    enum Accessory {
+        case chevron, external
+    }
+
+    let title: LocalizedStringKey
+    let systemImage: String
+    var tint: Color = Palette.amber
+    var subtitle: LocalizedStringKey?
+    var accessory: Accessory?
+    var titleColor: Color = Palette.textPrimary
+
+    @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 30
+
+    var body: some View {
+        HStack(spacing: 14) {
+            IconBadge(systemImage: systemImage, tint: tint, size: badgeSize)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(titleColor)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            // Separators start under the text, not under the badge.
+            .alignmentGuide(.listRowSeparatorLeading) { dimensions in
+                dimensions[.leading]
+            }
+            if let accessory {
+                Spacer(minLength: 8)
+                Image(systemName: accessory == .chevron ? "chevron.right" : "arrow.up.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// A Form section header in the app's rounded type, with a small tinted symbol.
+private struct SettingsSectionHeader: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    var tint: Color = Palette.amber
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(Palette.textSecondary)
+        }
+        .textCase(nil)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+private extension View {
+    /// Frosted glass rows with soft separators, for every section on the night background.
+    func settingsGlassRows() -> some View {
+        listRowBackground(Palette.surface.opacity(0.72))
+            .listRowSeparatorTint(Palette.hairline)
     }
 }
 

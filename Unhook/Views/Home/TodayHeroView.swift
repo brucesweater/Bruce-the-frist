@@ -74,31 +74,31 @@ private struct TodayHeroLive: View {
     }
 }
 
-/// The big number in the orb: days once the streak passes a day, hours or minutes before that, so a brand-new
-/// streak never opens on a "0".
+/// The big number in the orb: days once the streak passes a day, and hours or minutes before that, so a new streak
+/// opens on how far it has come rather than on "0 days".
 private struct TodayHeroHeadline: Equatable {
-    enum Unit: Equatable {
+    enum Kind: Equatable {
         case days, hours, minutes
     }
 
     let value: Int
-    let unit: Unit
+    let kind: Kind
 
     init(parts: DurationFormatter.Parts) {
         if parts.days > 0 {
             value = parts.days
-            unit = .days
+            kind = .days
         } else if parts.hours > 0 {
             value = parts.hours
-            unit = .hours
+            kind = .hours
         } else {
             value = parts.minutes
-            unit = .minutes
+            kind = .minutes
         }
     }
 
     var label: LocalizedStringKey {
-        switch unit {
+        switch kind {
         case .days:
             return value == 1 ? "day free" : "days free"
         case .hours:

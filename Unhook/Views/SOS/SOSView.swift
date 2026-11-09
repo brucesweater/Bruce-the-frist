@@ -1,18 +1,20 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
-/// The craving emergency button: ~60 seconds of guided breathing with the user's own reasons,
-/// then a choice to log the win or get more ideas.
+/// The craving emergency button: about a minute of guided breathing with the user's own reasons, then a sunrise.
+/// The craving is logged as beaten, with an optional trigger and strength, plus ideas to try, the coach and a helpline.
 struct SOSView: View {
     /// The habit the craving is about, or nil when opened from the home screen.
     let habit: Habit?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Habit.sortIndex) private var allHabits: [Habit]
     @Query private var urges: [Urge]
 
-    private enum Phase { case breathing, finished, celebrating }
+    private enum Phase { case breathing, finished }
 
     private enum BreathStep {
         case inhale, hold, exhale
@@ -24,10 +26,24 @@ struct SOSView: View {
             case .exhale: String(localized: "Breathe out")
             }
         }
+
+        /// In for 4, hold for 4, out for 6.
+        var seconds: Int {
+            switch self {
+            case .inhale: 4
+            case .hold: 4
+            case .exhale: 6
+            }
+        }
+    }
+
+    /// Something to do while a craving fades, with a symbol for its chip.
+    private struct Distraction: Hashable {
+        let text: String
+        let systemImage: String
     }
 
     private static let totalCycles = 4
-    private static let restingScale: CGFloat = 0.55
 
     private static let fallbackReasons = [
         String(localized: "Cravings peak and fade within minutes."),
@@ -35,48 +51,55 @@ struct SOSView: View {
         String(localized: "Future you is already proud of you."),
     ]
 
-    private static let allDistractions = [
-        String(localized: "Drink a big glass of cold water"),
-        String(localized: "Go for a five-minute walk"),
-        String(localized: "Text or call a friend"),
-        String(localized: "Do 15 push-ups or squats"),
-        String(localized: "Splash cold water on your face"),
-        String(localized: "Chew gum or eat something crunchy"),
-        String(localized: "Put on your favorite song"),
-        String(localized: "Write down how you feel right now"),
-        String(localized: "Brush your teeth"),
-        String(localized: "Step outside and take ten deep breaths"),
+    private static let allDistractions: [Distraction] = [
+        Distraction(text: String(localized: "Drink a big glass of cold water"), systemImage: "drop.fill"),
+        Distraction(text: String(localized: "Go for a five-minute walk"), systemImage: "figure.walk"),
+        Distraction(text: String(localized: "Text or call a friend"), systemImage: "message.fill"),
+        Distraction(text: String(localized: "Do 15 push-ups or squats"), systemImage: "figure.strengthtraining.traditional"),
+        Distraction(text: String(localized: "Splash cold water on your face"), systemImage: "snowflake"),
+        Distraction(text: String(localized: "Chew gum or eat something crunchy"), systemImage: "carrot.fill"),
+        Distraction(text: String(localized: "Put on your favorite song"), systemImage: "music.note"),
+        Distraction(text: String(localized: "Write down how you feel right now"), systemImage: "square.and.pencil"),
+        Distraction(text: String(localized: "Brush your teeth"), systemImage: "sparkles"),
+        Distraction(text: String(localized: "Step outside and take ten deep breaths"), systemImage: "wind"),
     ]
 
     @State private var phase: Phase = .breathing
     @State private var step: BreathStep = .inhale
-    @State private var circleScale: CGFloat = SOSView.restingScale
+    /// 0 with empty lungs, 1 at the top of the breath. Drives the orb.
+    @State private var breath: Double = 0
+    @State private var secondsLeft = BreathStep.inhale.seconds
     @State private var cycle = 1
     @State private var reasonIndex = 0
+    /// Changes on "Breathe again", which restarts the breathing task.
     @State private var runID = UUID()
     @State private var beatenCount = 0
     @State private var distractions = Array(SOSView.allDistractions.shuffled().prefix(3))
-    /// After "I beat this craving": the quick "what set it off / how strong" step before the celebration.
-    @State private var isTaggingCraving = false
     @State private var selectedTrigger: CravingTrigger?
     /// 1 (mild) … 5 (overwhelming), or 0 when not rated.
     @State private var intensity = 0
-    /// Stops a double tap on Close from logging the craving twice while the screen slides away.
-    @State private var didLogOnClose = false
+    /// The craving logged as beaten when the breathing ended. Picking a trigger or a strength updates it, and
+    /// breathing again never logs the same craving twice.
+    @State private var loggedUrge: Urge?
+    @State private var sunRisen = false
     @State private var showingCoach = false
-
-    private var theme: HabitTheme { habit?.theme ?? .grape }
 
     private var reasons: [String] {
         let source = habit.map { [$0] } ?? allHabits
         let all = source.flatMap(\.reasons)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         return all.isEmpty ? Self.fallbackReasons : all
+    }
+
+    private var currentReason: String {
+        let all = reasons
+        return all[reasonIndex % all.count]
     }
 
     var body: some View {
         ZStack {
-            Brand.night
-                .ignoresSafeArea()
+            screenBackground
 
             switch phase {
             case .breathing:
@@ -84,14 +107,7 @@ struct SOSView: View {
                     .transition(.opacity)
             case .finished:
                 finishedContent
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-            case .celebrating:
-                celebrationContent
-                    .transition(.opacity)
-            }
-
-            if phase == .celebrating {
-                ConfettiView()
+                    .transition(finishTransition)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -102,233 +118,297 @@ struct SOSView: View {
             CoachView(habit: habit)
         }
         .task(id: runID) {
-            await runBreathing()
+            await runBreathing(id: runID)
+        }
+        .onChange(of: phase, initial: true) { _, newPhase in
+            // A minute without touching the screen is longer than many Auto-Lock settings.
+            UIApplication.shared.isIdleTimerDisabled = newPhase == .breathing
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+    }
+
+    private var finishTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.97))
+    }
+
+    private var screenBackground: some View {
+        ZStack {
+            DawnBackground(glow: 0.35)
+            // Morning light that comes up with the sun once the craving is beaten.
+            RadialGradient(
+                colors: [Palette.amber.opacity(0.32), Palette.rose.opacity(0.14), .clear],
+                center: UnitPoint(x: 0.5, y: 0.1),
+                startRadius: 0,
+                endRadius: 560
+            )
+            .opacity(sunRisen ? 1 : 0)
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
         }
     }
 
     // MARK: Breathing
 
     private var breathingContent: some View {
-        VStack(spacing: 36) {
-            Spacer()
-            Text("Cycle \(cycle) of \(Self.totalCycles)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.7))
-                .contentTransition(.numericText())
-
-            ZStack {
-                Circle()
-                    .fill(theme.gradient)
-                    .opacity(0.35)
-                    .scaleEffect(circleScale * 1.25)
-                    .blur(radius: 24)
-                Circle()
-                    .fill(theme.gradient)
-                    .scaleEffect(circleScale)
-                    .shadow(color: theme.accent.opacity(0.6), radius: 30)
-                Text(step.title)
-                    .font(.title.bold())
-                    .foregroundStyle(.white)
-                    .id(step)
-                    .transition(.opacity)
+        GeometryReader { proxy in
+            let orbSize = max(140, min(300, proxy.size.width - 64, proxy.size.height * 0.38))
+            VStack(spacing: 0) {
+                Spacer(minLength: 52)
+                SOSBreathingOrb(breath: breath, secondsLeft: secondsLeft, diameter: orbSize)
+                breathGuide
+                    .padding(.top, 20)
+                Spacer(minLength: 20)
+                SOSReasonCard(reason: currentReason, index: reasonIndex)
+                skipButton
+                    .padding(.top, 16)
             }
-            .frame(width: 280, height: 280)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(step.title)
-
-            VStack(spacing: 8) {
-                Text("REMEMBER WHY")
-                    .font(.caption.weight(.heavy))
-                    .tracking(2)
-                    .foregroundStyle(.white.opacity(0.6))
-                Text(reasons[reasonIndex % reasons.count])
-                    .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .id(reasonIndex)
-                    .transition(.opacity)
-            }
-            .frame(minHeight: 90)
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            Button("Skip") {
-                withAnimation(.easeInOut(duration: 0.4)) { phase = .finished }
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white.opacity(0.6))
-            .padding(.bottom, 12)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 
-    private func runBreathing() async {
+    /// The step in big rounded type, then one dot per cycle.
+    private var breathGuide: some View {
+        VStack(spacing: 14) {
+            // A ZStack, so the old and new step overlap while they crossfade.
+            ZStack {
+                Text(step.title)
+                    .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .id(step)
+                    .transition(.opacity)
+            }
+            SOSCycleDots(current: cycle, total: Self.totalCycles)
+        }
+    }
+
+    private var skipButton: some View {
+        Button(action: finish) {
+            Text("Skip")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.textSecondary)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.08), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Ends the breathing early")
+    }
+
+    private func runBreathing(id: UUID) async {
         guard phase == .breathing else { return }
 
         for current in 1...Self.totalCycles {
             cycle = current
-
-            withAnimation(.easeInOut(duration: 0.4)) { step = .inhale }
-            Haptics.soft()
-            withAnimation(.easeInOut(duration: 4)) { circleScale = 1 }
-            guard await keepBreathing(after: 4) else { return }
-
-            withAnimation(.easeInOut(duration: 0.4)) { step = .hold }
-            Haptics.soft()
-            guard await keepBreathing(after: 4) else { return }
-
-            withAnimation(.easeInOut(duration: 0.4)) { step = .exhale }
-            Haptics.soft()
-            withAnimation(.easeInOut(duration: 6)) { circleScale = Self.restingScale }
-            guard await keepBreathing(after: 6) else { return }
-
-            withAnimation(.easeInOut(duration: 0.6)) { reasonIndex += 1 }
+            for next in [BreathStep.inhale, .hold, .exhale] {
+                guard await breathe(next, run: id) else { return }
+            }
+            if current < Self.totalCycles {
+                withAnimation(.easeInOut(duration: 0.8)) { reasonIndex += 1 }
+            }
         }
 
-        Haptics.success()
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { phase = .finished }
+        finish()
     }
 
-    /// Sleeps for `seconds`; returns false if the screen was closed or the user skipped ahead meanwhile.
-    private func keepBreathing(after seconds: Double) async -> Bool {
-        do {
-            try await Task.sleep(for: .seconds(seconds))
-        } catch {
-            return false
+    /// One step of the breath: moves the orb, counts the seconds down with a gentle tick each second (none while
+    /// holding) and a firmer tap when the step changes. Returns false if the screen closed, the user skipped ahead
+    /// or a newer run took over.
+    private func breathe(_ next: BreathStep, run id: UUID) async -> Bool {
+        withAnimation(.easeInOut(duration: 0.4)) { step = next }
+        secondsLeft = next.seconds
+        Haptics.tap()
+        Self.announce(next.title)
+
+        switch next {
+        case .inhale:
+            withAnimation(.easeInOut(duration: Double(next.seconds))) { breath = 1 }
+        case .exhale:
+            withAnimation(.easeInOut(duration: Double(next.seconds))) { breath = 0 }
+        case .hold:
+            break
         }
-        return phase == .breathing
+
+        for elapsed in 1...next.seconds {
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch {
+                return false
+            }
+            guard phase == .breathing, id == runID else { return false }
+            if elapsed < next.seconds {
+                withAnimation(.easeInOut(duration: 0.3)) { secondsLeft = next.seconds - elapsed }
+                if next != .hold {
+                    Haptics.selection()
+                }
+            }
+        }
+        return true
     }
 
-    // MARK: After breathing
+    /// Speaks each step for VoiceOver users, who can't see the orb.
+    private static func announce(_ text: String) {
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        UIAccessibility.post(notification: .announcement, argument: text)
+    }
+
+    // MARK: Craving beaten
 
     private var finishedContent: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                Image(systemName: "water.waves")
-                    .font(.system(size: 56))
-                    .foregroundStyle(theme.gradient)
-                    .padding(.top, isTaggingCraving ? 40 : 64)
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 10) {
-                    Text("You rode the wave")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(.white)
-                    if !isTaggingCraving {
-                        Text("Cravings peak and pass within minutes. You just proved you can outlast one.")
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.white.opacity(0.75))
-                    }
-                }
-
-                if isTaggingCraving {
-                    cravingDetails
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else {
-                    Button(action: startTagging) {
-                        Label("I beat this craving", systemImage: "hand.thumbsup.fill")
-                    }
-                    .buttonStyle(PrimaryButtonStyle(gradient: theme.gradient))
-
-                    distractionList
-
-                    Button {
-                        Haptics.tap()
-                        showingCoach = true
-                    } label: {
-                        Label("Talk it through with your coach", systemImage: "sparkles")
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-
-                    Button(action: restart) {
-                        Label("Breathe again", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                }
+            VStack(spacing: 20) {
+                finishHeader
+                cravingDetailsCard
+                distractionsCard
+                moreHelp
             }
-            .padding(24)
+            .padding(.horizontal, 20)
+            .padding(.top, 44)
+            .padding(.bottom, 12)
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom) {
+            doneBar
+        }
+        .onAppear {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.6) : .easeOut(duration: 1.8)) {
+                sunRisen = true
+            }
         }
     }
 
-    // MARK: What set it off
+    private var finishHeader: some View {
+        VStack(spacing: 12) {
+            SOSRisingSun(risen: sunRisen)
+                .padding(.bottom, 4)
+            Text("Craving beaten")
+                .font(.screenTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .multilineTextAlignment(.center)
+            Chip(text: Text("+20 XP"), tint: Palette.amber, filled: true)
+            Text(celebrationLine)
+                .font(.callout)
+                .foregroundStyle(Palette.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
 
-    /// One quick, optional step: tag the trigger and the strength, then save or skip. Both log the win.
-    private var cravingDetails: some View {
-        VStack(alignment: .leading, spacing: 24) {
+    private var celebrationLine: String {
+        beatenCount <= 1
+            ? String(localized: "Your first one. Every craving you ride out proves you can do it.")
+            : String(localized: "That's \(beatenCount) cravings beaten. Every one you ride out proves you can do it.")
+    }
+
+    /// The optional "what set it off / how strong" questions. Answers are saved on the craving right away.
+    private var cravingDetailsCard: some View {
+        VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("What set it off?")
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-                CravingTriggerPicker(selection: $selectedTrigger, tint: theme.gradient)
+                cardTitle("What set it off?")
+                SOSFlowLayout(spacing: 8) {
+                    ForEach(CravingTrigger.allCases) { trigger in
+                        SOSChoiceChip(title: trigger.title, emoji: trigger.emoji, isSelected: selectedTrigger == trigger) {
+                            selectTrigger(trigger)
+                        }
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("How strong was it?")
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-                intensityPicker
-            }
-
-            HStack(spacing: 12) {
-                Button("Skip") {
-                    logResisted(trigger: nil, intensity: 0)
+                cardTitle("How strong was it?")
+                SOSFlowLayout(spacing: 8) {
+                    ForEach(1...5, id: \.self) { level in
+                        SOSChoiceChip(title: Self.intensityDescription(level), isSelected: intensity == level) {
+                            selectIntensity(level)
+                        }
+                    }
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityHint("Logs the win without these details")
-
-                Button("Save") {
-                    logResisted(trigger: selectedTrigger, intensity: intensity)
-                }
-                .buttonStyle(PrimaryButtonStyle(gradient: theme.gradient))
             }
         }
-        .foregroundStyle(.white)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glassSurface(cornerRadius: 24)
     }
 
-    private var intensityPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(1...5, id: \.self) { level in
-                    intensityButton(level)
+    private var distractionsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            cardTitle("Still craving? Try one of these:")
+            SOSFlowLayout(spacing: 8) {
+                ForEach(distractions, id: \.text) { idea in
+                    SOSIdeaChip(text: idea.text, systemImage: idea.systemImage)
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: intensity)
-
-            Text(Self.intensityDescription(intensity))
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Strength")
-        .accessibilityValue(intensity == 0 ? String(localized: "Not rated") : Self.intensityDescription(intensity))
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment:
-                intensity = min(intensity + 1, 5)
-            case .decrement:
-                intensity = max(intensity - 1, 0)
-            default:
-                break
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glassSurface(cornerRadius: 24)
+    }
+
+    private func cardTitle(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.cardTitle)
+            .foregroundStyle(Palette.textPrimary)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var moreHelp: some View {
+        VStack(spacing: 12) {
+            Button {
+                Haptics.tap()
+                showingCoach = true
+            } label: {
+                Label("Talk it through with your coach", systemImage: "sparkles")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+
+            Button(action: restart) {
+                Label("Breathe again", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+
+            if let url = CoachSafety.helplineURL {
+                Link(destination: url) {
+                    Label("Find a free helpline", systemImage: "phone.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Palette.textSecondary)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityHint("Opens a free directory of crisis lines")
             }
         }
     }
 
-    /// Circles that grow with the level, filled up to the chosen one. Tapping the chosen level clears it.
-    private func intensityButton(_ level: Int) -> some View {
-        let isFilled = level <= intensity
-        let diameter = CGFloat(16 + level * 4)
-        return Button {
-            intensity = intensity == level ? 0 : level
-            Haptics.selection()
+    private var doneBar: some View {
+        Button {
+            Haptics.tap()
+            dismiss()
         } label: {
-            Circle()
-                .fill(isFilled ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(Color.white.opacity(0.18)))
-                .frame(width: diameter, height: diameter)
-                .frame(width: 48, height: 48)
-                .contentShape(Rectangle())
+            Text("Done")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PrimaryButtonStyle())
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background {
+            LinearGradient(
+                colors: [Palette.ink.opacity(0), Palette.ink.opacity(0.55)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
     }
 
     private static func intensityDescription(_ level: Int) -> String {
@@ -338,102 +418,80 @@ struct SOSView: View {
         case 3: String(localized: "Strong")
         case 4: String(localized: "Intense")
         case 5: String(localized: "Overwhelming")
-        default: String(localized: "Tap a circle to rate it")
+        default: String(localized: "Not rated")
         }
-    }
-
-    private var distractionList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Still craving? Try one of these:")
-                .font(.headline)
-            ForEach(distractions, id: \.self) { idea in
-                Label(idea, systemImage: "sparkle")
-                    .font(.subheadline)
-            }
-        }
-        .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private var celebrationContent: some View {
-        VStack(spacing: 16) {
-            Text("💪")
-                .font(.system(size: 90))
-            Text("Craving crushed!")
-                .font(.largeTitle.bold())
-                .foregroundStyle(.white)
-            Text(beatenCount == 1
-                 ? "Your first one. Every craving you ride out proves you can do it."
-                 : "That's \(beatenCount) cravings beaten. Every one you ride out proves you can do it.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.white.opacity(0.8))
-        }
-        .padding(32)
     }
 
     private var closeButton: some View {
         Button(action: close) {
             Image(systemName: "xmark")
                 .font(.headline)
-                .foregroundStyle(.white.opacity(0.8))
-                .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.12), in: Circle())
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: 44, height: 44)
+                .background(Palette.surfaceRaised.opacity(0.6), in: Circle())
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
         .accessibilityLabel("Close")
     }
 
     // MARK: Actions
 
-    private func startTagging() {
-        Haptics.tap()
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { isTaggingCraving = true }
-    }
-
-    private func logResisted(trigger: CravingTrigger?, intensity level: Int) {
-        // A quick double tap (or a tap while Close is dismissing the screen) must not log the same craving twice.
-        guard phase == .finished, !didLogOnClose else { return }
-        beatenCount = urges.filter(\.resisted).count + 1
-        saveResistedUrge(trigger: trigger, intensity: level)
-
+    /// Ends the breathing, whether it ran to the end or the user skipped: logs the beaten craving and lets the sun up.
+    private func finish() {
+        guard phase == .breathing else { return }
+        logBeatenCraving()
         Haptics.success()
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { phase = .celebrating }
-        Task {
-            try? await Task.sleep(for: .seconds(2.8))
-            dismiss()
-        }
+        withAnimation(.easeInOut(duration: 0.5)) { phase = .finished }
     }
 
-    private func saveResistedUrge(trigger: CravingTrigger?, intensity level: Int) {
-        let urge = Urge(resisted: true, trigger: trigger, intensity: level)
+    /// Logs the craving as beaten, once per visit, on the habit it's about (or the only habit there is).
+    private func logBeatenCraving() {
+        guard loggedUrge == nil else { return }
+        beatenCount = urges.filter(\.resisted).count + 1
+        let urge = Urge(resisted: true, trigger: selectedTrigger, intensity: intensity)
         context.insert(urge)
         if let target = habit ?? (allHabits.count == 1 ? allHabits.first : nil) {
             target.urges.append(urge)
         }
+        loggedUrge = urge
         // Counts toward the App Store review prompt, which is only shown later at a calm high point.
         ReviewPrompter.standard.recordPositiveMoment()
     }
 
-    /// Closing from the "what set it off" step still counts the craving the user just said they beat.
+    /// Picks a trigger (tapping the picked one clears it) and saves it on the logged craving.
+    private func selectTrigger(_ trigger: CravingTrigger) {
+        let newValue: CravingTrigger? = selectedTrigger == trigger ? nil : trigger
+        selectedTrigger = newValue
+        loggedUrge?.trigger = newValue
+        Haptics.selection()
+    }
+
+    /// Picks a strength (tapping the picked one clears it) and saves it on the logged craving.
+    private func selectIntensity(_ level: Int) {
+        let newValue = intensity == level ? 0 : level
+        intensity = newValue
+        loggedUrge?.intensity = newValue
+        Haptics.selection()
+    }
+
     private func close() {
-        if isTaggingCraving, phase == .finished, !didLogOnClose {
-            didLogOnClose = true
-            saveResistedUrge(trigger: selectedTrigger, intensity: intensity)
-        }
         dismiss()
     }
 
+    /// Another round of breathing for a craving that's still there. The craving stays logged once.
     private func restart() {
-        circleScale = Self.restingScale
+        Haptics.tap()
+        breath = 0
         step = .inhale
+        secondsLeft = BreathStep.inhale.seconds
         cycle = 1
         distractions = Array(Self.allDistractions.shuffled().prefix(3))
-        isTaggingCraving = false
-        selectedTrigger = nil
-        intensity = 0
-        withAnimation(.easeInOut(duration: 0.4)) { phase = .breathing }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            phase = .breathing
+            sunRisen = false
+        }
         runID = UUID()
     }
 }
