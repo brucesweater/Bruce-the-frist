@@ -5,6 +5,7 @@ import SwiftData
 /// Pushed from the Today screen's goals card.
 struct GoalsView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(Store.self) private var store
     @Environment(AppRouter.self) private var router
     @Query(sort: [SortDescriptor(\SavingsGoal.sortIndex), SortDescriptor(\SavingsGoal.createdAt)])
@@ -16,6 +17,8 @@ struct GoalsView: View {
     @State private var editingGoal: SavingsGoal?
     /// Set while the "bought it" confetti is showing. A new value restarts the burst.
     @State private var celebrationID: UUID?
+
+    private static let rowBackground = Palette.surface.opacity(0.72)
 
     private var activeGoals: [SavingsGoal] {
         goals.filter { !$0.isRedeemed }
@@ -30,6 +33,7 @@ struct GoalsView: View {
 
     var body: some View {
         content
+            .dawnScreenBackground(glow: 0.35)
             .navigationTitle("Savings goals")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
@@ -50,7 +54,10 @@ struct GoalsView: View {
                     celebrationBanner
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: celebrationID)
+            .animation(
+                reduceMotion ? Animation.easeInOut(duration: 0.2) : Animation.spring(response: 0.4, dampingFraction: 0.8),
+                value: celebrationID
+            )
     }
 
     @ViewBuilder
@@ -84,11 +91,14 @@ struct GoalsView: View {
         let redeemed = redeemedGoals
         return List {
             savingsSection(snapshot)
-            Section("Saving for") {
+            Section {
                 if active.isEmpty {
                     Button(action: addGoal) {
                         Label("Set a new goal", systemImage: "plus.circle.fill")
+                            .font(.headline)
+                            .foregroundStyle(Palette.amber)
                     }
+                    .listRowBackground(Self.rowBackground)
                 } else {
                     ForEach(active) { goal in
                         activeRow(goal, progress: snapshot.progress(for: goal))
@@ -99,47 +109,73 @@ struct GoalsView: View {
                     .onDelete { offsets in
                         deleteGoals(at: offsets, in: active)
                     }
+                    .listRowBackground(Self.rowBackground)
+                    .listRowSeparatorTint(Palette.hairline)
                 }
+            } header: {
+                sectionHeader("Saving for")
             }
             if !redeemed.isEmpty {
-                Section("Redeemed") {
+                Section {
                     ForEach(redeemed) { goal in
                         redeemedRow(goal)
                     }
                     .onDelete { offsets in
                         deleteGoals(at: offsets, in: redeemed)
                     }
+                    .listRowBackground(Self.rowBackground)
+                    .listRowSeparatorTint(Palette.hairline)
+                } header: {
+                    sectionHeader("Redeemed")
                 }
             }
         }
     }
 
+    private func sectionHeader(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.sectionTitle)
+            .foregroundStyle(Palette.textPrimary)
+            .textCase(nil)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     private func savingsSection(_ snapshot: GoalFundingSnapshot) -> some View {
         Section {
             HStack(spacing: 14) {
-                Image(systemName: "banknote.fill")
-                    .font(.title2)
-                    .foregroundStyle(.green)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(MoneyFormatter.rounded(snapshot.totalSaved, code: currencyCode)) saved so far")
-                        .font(.headline)
+                IconBadge(systemImage: "banknote.fill", tint: Palette.money, size: 46)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Saved so far")
+                        .microLabel(Palette.money)
+                    Text(MoneyFormatter.rounded(snapshot.totalSaved, code: currencyCode))
+                        .font(.display(30))
+                        .foregroundStyle(Palette.textPrimary)
                         .monospacedDigit()
-                    if snapshot.dailySavings > 0 {
-                        Text("\(MoneyFormatter.precise(snapshot.dailySavings, code: currencyCode)) more every day you stay free")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Add what a habit cost you per day to start funding your goals.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Group {
+                        if snapshot.dailySavings > 0 {
+                            Text("\(MoneyFormatter.precise(snapshot.dailySavings, code: currencyCode)) more every day you stay free")
+                        } else {
+                            Text("Add what a habit cost you per day to start funding your goals.")
+                        }
                     }
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
             .accessibilityElement(children: .combine)
+            .listRowBackground(
+                ZStack {
+                    Self.rowBackground
+                    Palette.money.opacity(0.1)
+                }
+            )
         } footer: {
             Text("Your savings fill goals from the top down. Tap Edit to change the order or remove a goal.")
+                .foregroundStyle(Palette.textTertiary)
         }
     }
 
@@ -201,33 +237,47 @@ struct GoalsView: View {
     // MARK: Empty state and celebration
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label("Reward yourself", systemImage: "gift.fill")
-        } description: {
-            Text("Pick something you'd love. The money you no longer spend on your habit pays for it.")
-        } actions: {
+        VStack(spacing: 18) {
+            IconBadge(systemImage: "gift.fill", tint: Palette.amber, size: 72)
+                .shadow(color: Palette.amber.opacity(0.35), radius: 18)
+            VStack(spacing: 8) {
+                Text("Reward yourself")
+                    .font(.sectionTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Pick something you'd love. The money you no longer spend on your habit pays for it.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Button("Set a savings goal", action: addGoal)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, 24)
+                .padding(.top, 4)
         }
+        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
     }
 
     private var celebrationBanner: some View {
         Text("You earned this! 🎉")
-            .font(.headline)
-            .padding(.horizontal, 20)
+            .font(.system(.headline, design: .rounded).weight(.bold))
+            .foregroundStyle(Palette.inkText)
+            .padding(.horizontal, 22)
             .padding(.vertical, 12)
-            .background(.regularMaterial, in: Capsule())
-            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+            .background(Brand.gradient, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
+            .shadow(color: Palette.amber.opacity(0.5), radius: 14, y: 4)
             .padding(.top, 8)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(reduceMotion ? AnyTransition.opacity : AnyTransition.move(edge: .top).combined(with: .opacity))
             .allowsHitTesting(false)
     }
 
     // MARK: Actions
 
-    /// Free users save toward one goal at a time; another active goal opens the Pro paywall.
+    /// Free users save toward one goal at a time; another active goal opens the Pro paywall. While Unhook is
+    /// free (`Monetization.isProEnabled` is false) everyone counts as Pro, so this always opens the editor.
     private func addGoal() {
         if ProLimits.canAddGoal(activeCount: activeGoals.count, isPro: store.isPro) {
             showingNewGoal = true
@@ -238,7 +288,7 @@ struct GoalsView: View {
 
     private func markBought(_ goal: SavingsGoal) {
         guard !goal.isRedeemed else { return }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : Animation.spring(response: 0.4, dampingFraction: 0.8)) {
             goal.redeemedAt = .now
         }
         Haptics.success()
@@ -312,17 +362,18 @@ private struct GoalsActiveRow: View {
             if progress.isFunded {
                 Button(action: onMarkBought) {
                     Label("Mark as bought", systemImage: "bag.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .foregroundStyle(Palette.inkText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Brand.gradient, in: Capsule())
+                        .shadow(color: Palette.amber.opacity(0.4), radius: 10, y: 4)
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
     }
 }
 
@@ -338,28 +389,30 @@ private struct GoalsRedeemedRow: View {
                     .font(.title2)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.title)
-                        .font(.headline)
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.textPrimary)
                     if let redeemedAt = goal.redeemedAt {
                         Text("Bought \(redeemedAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Palette.textTertiary)
                     }
                 }
                 Spacer(minLength: 0)
                 Text(GoalMoney.price(goal.cost, code: currencyCode))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .monospacedDigit()
             }
             .accessibilityElement(children: .combine)
 
             ShareLink(item: GoalShareText.bought(emoji: goal.emoji, title: goal.title)) {
                 Image(systemName: "square.and.arrow.up")
+                    .foregroundStyle(Palette.amber)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Share")
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 }
 

@@ -28,6 +28,7 @@ struct GoalEditorView: View {
     }
 
     private static let defaultEmoji = "🎁"
+    private static let rowBackground = Palette.surface.opacity(0.72)
 
     private static let quickPicks: [QuickPick] = [
         QuickPick(emoji: "✈️", title: String(localized: "Weekend trip")),
@@ -68,6 +69,8 @@ struct GoalEditorView: View {
                 costSection
                 ideasSection
             }
+            .scrollDismissesKeyboard(.interactively)
+            .dawnScreenBackground(glow: 0.3)
             .navigationTitle(goal == nil ? "New goal" : "Edit goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -99,21 +102,28 @@ struct GoalEditorView: View {
                     .font(.system(size: 34))
                     .multilineTextAlignment(.center)
                     .frame(width: 60, height: 60)
-                    .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Palette.surfaceRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(focusedField == .emoji ? Palette.amber : Color.white.opacity(0.12), lineWidth: 1)
+                    }
                     .focused($focusedField, equals: .emoji)
                     .onChange(of: emoji) { _, newValue in
                         if newValue.count > 1 { emoji = String(newValue.suffix(1)) }
                     }
                     .accessibilityLabel("Emoji")
                 TextField("What are you saving for?", text: $title)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .foregroundStyle(Palette.textPrimary)
                     .focused($focusedField, equals: .title)
                     .submitLabel(.next)
                     .onSubmit { focusedField = .cost }
             }
             .padding(.vertical, 4)
+            .listRowBackground(Self.rowBackground)
         } footer: {
             Text("Tap the emoji to pick your own.")
+                .foregroundStyle(Palette.textTertiary)
         }
     }
 
@@ -121,19 +131,24 @@ struct GoalEditorView: View {
         Section {
             HStack {
                 Text("Price")
+                    .foregroundStyle(Palette.textPrimary)
                 Spacer()
                 Text(currencySymbol)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.textSecondary)
                 TextField("0", text: $costText)
+                    .font(.system(.body, design: .rounded).weight(.semibold))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 120)
                     .focused($focusedField, equals: .cost)
             }
+            .listRowBackground(Self.rowBackground)
         } header: {
             Text("How much does it cost?")
+                .foregroundStyle(Palette.textSecondary)
         } footer: {
             costFooter
+                .foregroundStyle(Palette.textTertiary)
         }
     }
 
@@ -152,13 +167,17 @@ struct GoalEditorView: View {
     }
 
     private var ideasSection: some View {
-        Section("Need ideas?") {
+        Section {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
                 ForEach(Self.quickPicks) { pick in
                     quickPickChip(pick)
                 }
             }
             .padding(.vertical, 6)
+            .listRowBackground(Self.rowBackground)
+        } header: {
+            Text("Need ideas?")
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 
@@ -168,7 +187,8 @@ struct GoalEditorView: View {
             apply(pick)
         } label: {
             Text(verbatim: "\(pick.emoji) \(pick.title)")
-                .font(.subheadline.weight(.medium))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? Palette.amber : Palette.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
@@ -176,12 +196,12 @@ struct GoalEditorView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 10)
                 .background(
-                    isSelected ? Color.accentColor.opacity(0.2) : Color(.tertiarySystemFill),
+                    isSelected ? Palette.amber.opacity(0.18) : Color.white.opacity(0.07),
                     in: Capsule()
                 )
                 .overlay {
                     Capsule()
-                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                        .strokeBorder(isSelected ? Palette.amber : Color.white.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
                 }
                 .contentShape(Capsule())
         }

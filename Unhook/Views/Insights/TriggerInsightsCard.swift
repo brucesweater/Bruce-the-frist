@@ -2,11 +2,9 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// Progress-tab card that shows when and why cravings hit: the #1 trigger, the peak time, the top triggers
-/// and a 24-hour chart. The #1 trigger is free; the rest is part of Unhook Pro.
+/// Progress-tab section that shows when and why cravings hit: the #1 trigger, the toughest time and day, the top
+/// triggers and a 24-hour chart.
 struct TriggerInsightsCard: View {
-    @Environment(AppRouter.self) private var router
-    @Environment(Store.self) private var store
     @Query private var urges: [Urge]
     @Query private var relapses: [Relapse]
 
@@ -19,85 +17,80 @@ struct TriggerInsightsCard: View {
 
     var body: some View {
         let insights = TriggerInsights(events: events)
-        Card(title: "Craving patterns", systemImage: "waveform.path.ecg", tint: .pink) {
+        InsightsSection(title: "Craving patterns", systemImage: "waveform.path.ecg", tint: Palette.rose) {
             if insights.totalCount < Self.minimumEvents {
                 emptyState
             } else {
-                VStack(alignment: .leading, spacing: 18) {
-                    TopTriggerSummary(insights: insights)
-                    if store.isPro {
-                        TriggerInsightsDetails(insights: insights)
-                    } else {
-                        lockedTeaser
-                    }
-                }
+                TopTriggerSummary(insights: insights)
+                TriggerInsightsDetails(insights: insights)
             }
         }
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Learn what sets off your cravings")
-                .font(.subheadline.weight(.semibold))
-            Text("After you beat a craving in SOS, tap what set it off. Log a few and your top triggers and toughest times show up here.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var lockedTeaser: some View {
-        ZStack {
-            LockedInsightsPreview()
-                .blur(radius: 7)
-                .opacity(0.7)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-
-            VStack(spacing: 12) {
-                Image(systemName: "lock.fill")
-                    .font(.title2)
-                    .foregroundStyle(HabitTheme.candy.gradient)
-                    .accessibilityHidden(true)
-                Text("See when your cravings peak and your top triggers.")
-                    .font(.subheadline.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                Button {
-                    Haptics.tap()
-                    router.showPaywall(.insights)
-                } label: {
-                    Label("Unlock all insights", systemImage: "sparkles")
-                }
-                .buttonStyle(PrimaryButtonStyle(gradient: HabitTheme.candy.gradient))
+        HStack(alignment: .top, spacing: 12) {
+            IconBadge(systemImage: "tag.fill", tint: Palette.rose, size: 34)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Learn what sets off your cravings")
+                    .font(.cardTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                Text("After you beat a craving in SOS, tap what set it off. Log a few and your top triggers and toughest times show up here.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 8)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - #1 trigger
 
-/// "Your #1 trigger: 😤 Stress". The one insight free users get.
+/// "#1 trigger: 😤 Stress", with the share of tagged cravings and slips it was behind.
 private struct TopTriggerSummary: View {
     let insights: TriggerInsights
 
+    @ScaledMetric(relativeTo: .largeTitle) private var badgeSize: CGFloat = 60
+
     var body: some View {
         if let top = insights.topTrigger {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Your #1 trigger: \(top.trigger.emoji) \(top.trigger.title)")
-                    .font(.title3.bold())
-                Text("Behind \(percent(insights.share(of: top))) of the cravings and slips you tagged.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                Text(top.trigger.emoji)
+                    .font(.largeTitle)
+                    .frame(width: badgeSize, height: badgeSize)
+                    .background {
+                        Circle().fill(RadialGradient(
+                            colors: [Palette.amber.opacity(0.38), Palette.ember.opacity(0.06)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: badgeSize * 0.6
+                        ))
+                    }
+                    .overlay(Circle().strokeBorder(Palette.amber.opacity(0.4), lineWidth: 1))
+                    .shadow(color: Palette.amber.opacity(0.3), radius: 10)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("#1 trigger")
+                        .microLabel(Palette.amber)
+                    Text(top.trigger.title)
+                        .font(.display(28))
+                        .foregroundStyle(Palette.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text("Behind \(percent(insights.share(of: top))) of the cravings and slips you tagged.")
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         } else {
             Text("Tap what set off a craving after you beat it in SOS to find your #1 trigger.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -107,16 +100,18 @@ private struct TopTriggerSummary: View {
     }
 }
 
-// MARK: - Pro details
+// MARK: - Details
 
 private struct TriggerInsightsDetails: View {
     let insights: TriggerInsights
 
     /// A peak needs at least this many events in one bucket before it's worth pointing out.
     private static let minimumPeakCount = 2
+    /// Every hour of the day, so hours without cravings keep their place on the chart.
+    private static let hourDomain: [String] = (0..<TriggerInsights.hoursPerDay).map { String($0) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 22) {
             timingInsights
             topTriggerBars
             hourChart
@@ -126,20 +121,20 @@ private struct TriggerInsightsDetails: View {
     // MARK: Timing
 
     private var timingInsights: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             if let hour = insights.peakHour, insights.peakHourCount >= Self.minimumPeakCount {
-                InsightLine(systemImage: "clock.fill", tint: .orange) {
+                InsightLine(systemImage: "clock.fill", tint: Palette.time) {
                     Text("Cravings peak around \(TriggerInsights.hourLabel(hour)) — plan something for then.")
                 }
             } else {
-                InsightLine(systemImage: "clock", tint: .orange) {
+                InsightLine(systemImage: "clock", tint: Palette.time) {
                     Text("No clear peak time yet. Keep logging and it will show up.")
                 }
             }
             if let weekday = insights.peakWeekday,
                insights.peakWeekdayCount >= Self.minimumPeakCount,
                let name = TriggerInsights.weekdayName(weekday) {
-                InsightLine(systemImage: "calendar", tint: .blue) {
+                InsightLine(systemImage: "calendar", tint: Palette.violet) {
                     Text("Toughest day: \(name). A little extra support then goes a long way.")
                 }
             }
@@ -154,11 +149,12 @@ private struct TriggerInsightsDetails: View {
         if let top = insights.topTrigger {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Top triggers")
-                    .font(.subheadline.weight(.semibold))
+                    .microLabel()
                     .accessibilityAddTraits(.isHeader)
                 ForEach(Array(insights.topTriggers.prefix(3))) { item in
                     TriggerBarRow(
                         item: item,
+                        rank: insights.topTriggers.firstIndex(of: item) ?? 0,
                         share: insights.share(of: item),
                         fraction: top.count > 0 ? Double(item.count) / Double(top.count) : 0
                     )
@@ -169,63 +165,81 @@ private struct TriggerInsightsDetails: View {
 
     // MARK: Time of day
 
+    /// Bars only for the hours that had cravings, on a full 24-hour axis.
     private var hourChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let bars = insights.hourlyCounts.filter { $0.count > 0 }
+        let top = max(insights.peakHourCount, 1)
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Cravings by time of day")
-                .font(.subheadline.weight(.semibold))
+                .microLabel()
                 .accessibilityAddTraits(.isHeader)
-            Chart(insights.hourlyCounts) { item in
+            Chart(bars) { item in
                 BarMark(
                     x: .value("Hour", String(item.hour)),
                     y: .value("Cravings", item.count)
                 )
                 .foregroundStyle(barStyle(for: item.hour))
-                .cornerRadius(3)
+                .cornerRadius(4, style: .continuous)
                 .accessibilityLabel(Text(TriggerInsights.hourLabel(item.hour)))
                 .accessibilityValue(Text("Cravings: \(item.count)"))
+            }
+            .chartXScale(domain: Self.hourDomain)
+            .chartYScale(domain: 0...top)
+            .chartYAxis {
+                AxisMarks(position: .trailing, values: InsightsChartStyle.ticks(upTo: top)) { _ in
+                    AxisGridLine(stroke: InsightsChartStyle.gridStroke)
+                        .foregroundStyle(Palette.hairline)
+                    AxisValueLabel()
+                        .foregroundStyle(Palette.textTertiary)
+                }
             }
             .chartXAxis {
                 AxisMarks(values: ["0", "6", "12", "18"]) { value in
                     AxisValueLabel {
                         if let raw = value.as(String.self), let hour = Int(raw) {
                             Text(TriggerInsights.hourLabel(hour))
+                                .foregroundStyle(Palette.textTertiary)
                         }
                     }
                 }
             }
-            .frame(height: 160)
+            .frame(height: 150)
         }
     }
 
     /// Only highlights the peak bar when the text above calls out a peak, so the chart never contradicts it.
     private func barStyle(for hour: Int) -> AnyShapeStyle {
         if hour == insights.peakHour, insights.peakHourCount >= Self.minimumPeakCount {
-            return AnyShapeStyle(HabitTheme.candy.gradient)
+            return AnyShapeStyle(InsightsChartStyle.dawnBar)
         }
-        return AnyShapeStyle(Color.pink.opacity(0.35))
+        return AnyShapeStyle(InsightsChartStyle.violetBar)
     }
 }
 
-/// An icon plus one sentence of insight.
+/// A tinted icon plus one sentence of insight.
 private struct InsightLine<Content: View>: View {
     let systemImage: String
     let tint: Color
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
-                .accessibilityHidden(true)
+        HStack(alignment: .center, spacing: 12) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 30)
             content
                 .font(.subheadline)
+                .foregroundStyle(Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
+/// One of the top triggers: its share of tagged cravings, as a bar in the palette (warmest for the #1).
 private struct TriggerBarRow: View {
     let item: TriggerCount
+    /// 0 for the #1 trigger.
+    let rank: Int
     /// Share of all tagged events, for the label.
     let share: Double
     /// Length relative to the top trigger, for the bar.
@@ -235,24 +249,34 @@ private struct TriggerBarRow: View {
         share.formatted(.percent.precision(.fractionLength(0)))
     }
 
+    private var barColors: [Color] {
+        switch rank {
+        case 0: [Palette.amber, Palette.ember]
+        case 1: [Palette.rose, Palette.violet]
+        default: [Palette.violet, Palette.sky]
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text("\(item.trigger.emoji) \(item.trigger.title)")
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.textPrimary)
                 Spacer(minLength: 8)
                 Text(percent)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(.bold))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.textSecondary)
             }
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(Color.white.opacity(0.08))
                     Capsule()
-                        .fill(HabitTheme.candy.gradient)
-                        .frame(width: proxy.size.width * CGFloat(min(max(fraction, 0), 1)))
+                        .fill(LinearGradient(colors: barColors, startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(8, proxy.size.width * CGFloat(min(max(fraction, 0), 1))))
+                        .shadow(color: rank == 0 ? Palette.amber.opacity(0.45) : .clear, radius: 6)
                 }
             }
             .frame(height: 8)
@@ -263,42 +287,10 @@ private struct TriggerBarRow: View {
     }
 }
 
-/// Stand-in shapes behind the Pro teaser. Deliberately not the user's real data.
-private struct LockedInsightsPreview: View {
-    private static let barFractions: [Double] = [0.9, 0.6, 0.35]
-    private static let hourHeights: [Double] = [
-        0.2, 0.1, 0.05, 0.05, 0.1, 0.2, 0.35, 0.5, 0.4, 0.3, 0.35, 0.45,
-        0.55, 0.4, 0.35, 0.45, 0.6, 0.7, 0.8, 0.95, 1, 0.85, 0.6, 0.35,
-    ]
-    private static let chartHeight: Double = 90
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(Self.barFractions.indices, id: \.self) { index in
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(HabitTheme.candy.gradient)
-                        .frame(width: proxy.size.width * CGFloat(Self.barFractions[index]))
-                }
-                .frame(height: 10)
-            }
-            HStack(alignment: .bottom, spacing: 3) {
-                ForEach(Self.hourHeights.indices, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(Color.pink.opacity(0.5))
-                        .frame(height: CGFloat(Self.chartHeight * Self.hourHeights[index]))
-                }
-            }
-            .frame(height: CGFloat(Self.chartHeight), alignment: .bottom)
-        }
-        .padding(.vertical, 8)
-    }
-}
-
 // MARK: - Trigger picker (shared by the SOS screen and the slip sheet)
 
 /// A wrapping set of trigger chips. Single choice and optional: tapping the selected chip clears it.
-/// Uses primary-based colors so it reads well on the dark SOS screen and in light or dark forms.
+/// Glass chips on the night background; the selected one fills with `tint`.
 struct CravingTriggerPicker: View {
     @Binding var selection: CravingTrigger?
     var tint: LinearGradient = Brand.gradient
@@ -325,13 +317,18 @@ struct CravingTriggerPicker: View {
                     .fontWeight(.semibold)
             }
             .font(.subheadline)
-            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .foregroundStyle(Palette.textPrimary)
+            .shadow(color: .black.opacity(isSelected ? 0.25 : 0), radius: 1, y: 1)
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
             .background(
-                isSelected ? AnyShapeStyle(tint) : AnyShapeStyle(Color.primary.opacity(0.1)),
+                isSelected ? AnyShapeStyle(tint) : AnyShapeStyle(Color.white.opacity(0.08)),
                 in: Capsule()
             )
+            .overlay {
+                Capsule()
+                    .strokeBorder(Color.white.opacity(isSelected ? 0.3 : 0.12), lineWidth: 1)
+            }
             .contentShape(Capsule())
         }
         // Plain style keeps each chip its own tap target inside a Form row.
@@ -394,6 +391,6 @@ private struct TriggerChipFlowLayout: Layout {
         TriggerInsightsCard()
             .padding()
     }
-    .background(Color(.systemGroupedBackground))
+    .dawnScreenBackground()
     .previewEnvironment()
 }

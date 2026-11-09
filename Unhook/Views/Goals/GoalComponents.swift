@@ -76,22 +76,29 @@ struct GoalSummaryView: View {
                 Text(emoji)
                     .font(.title)
                     .frame(width: badgeSize, height: badgeSize)
-                    .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Palette.surfaceRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.headline)
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.textPrimary)
                         .lineLimit(2)
                     Text("\(GoalMoney.funded(progress, code: currencyCode)) of \(GoalMoney.price(progress.cost, code: currencyCode))")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .monospacedDigit()
                 }
                 Spacer(minLength: 0)
                 // Rounded down so it never reads 100% before the goal is actually funded.
                 Text(progress.fraction, format: .percent.precision(.fractionLength(0)).rounded(rule: .down))
-                    .font(.headline)
+                    .font(.display(26))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.gradient)
+                    .foregroundStyle(Brand.dawn)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             GoalProgressBar(fraction: progress.fraction)
             GoalStatusLine(progress: progress)
@@ -111,9 +118,9 @@ struct GoalStatusLine: View {
                     Text("Ready to treat yourself! 🎉")
                 } icon: {
                     Image(systemName: "gift.fill")
-                        .foregroundStyle(.pink)
+                        .foregroundStyle(Palette.sun)
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(Palette.textPrimary)
             } else if let days = progress.daysToGo {
                 Label {
                     if days <= 1 {
@@ -123,26 +130,34 @@ struct GoalStatusLine: View {
                     }
                 } icon: {
                     Image(systemName: "hourglass")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Palette.amber)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
             } else {
                 Label {
                     Text("Add what a habit cost you per day to start saving toward this.")
                 } icon: {
                     Image(systemName: "banknote")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Palette.money)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
             }
         }
         .font(.subheadline.weight(.medium))
     }
 }
 
-/// A capsule progress bar filled with the brand gradient.
+/// A capsule progress bar that fills with the dawn colors, ember to gold, with a soft glow.
 struct GoalProgressBar: View {
     let fraction: Double
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let fill = LinearGradient(
+        colors: [Palette.ember, Palette.amber, Palette.sun],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 
     private var clampedFraction: CGFloat {
         guard !fraction.isNaN else { return 0 }
@@ -153,14 +168,19 @@ struct GoalProgressBar: View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.primary.opacity(0.08))
+                    .fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(Brand.gradient)
+                    .fill(Self.fill)
+                    .overlay {
+                        Capsule()
+                            .fill(LinearGradient(colors: [Color.white.opacity(0.35), .clear], startPoint: .top, endPoint: .center))
+                    }
                     .frame(width: fillWidth(total: proxy.size.width))
+                    .shadow(color: Palette.amber.opacity(clampedFraction > 0 ? 0.5 : 0), radius: 6)
             }
         }
         .frame(height: 10)
-        .animation(.easeInOut(duration: 0.6), value: fraction)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.6), value: fraction)
         .accessibilityHidden(true)
     }
 
@@ -187,5 +207,8 @@ struct GoalProgressBar: View {
         )
     }
     .padding()
+    .glassSurface()
+    .padding()
+    .background(DawnBackground())
     .previewEnvironment()
 }

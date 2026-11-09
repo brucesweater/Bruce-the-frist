@@ -1,165 +1,353 @@
 import SwiftUI
 import SwiftData
-import Charts
 
+/// The Progress tab, told as a story: who you're becoming (your rank), your week, twelve weeks of clean days,
+/// what you've unlocked, the patterns behind your cravings and mood, and everything you've gained so far.
 struct InsightsView: View {
     @Query(sort: \Habit.sortIndex) private var habits: [Habit]
     @Query(sort: \Urge.date) private var urges: [Urge]
     @Query(sort: \Pledge.day) private var pledges: [Pledge]
     @AppStorage(AppSettings.Keys.currencyCode) private var currencyCode = AppSettings.defaultCurrencyCode
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var resistedCount: Int {
-        urges.filter(\.resisted).count
-    }
+    /// False once the big "Progress" header has scrolled away; a scrim then keeps the status bar readable.
+    @State private var isHeaderVisible = true
+
+    private static let scrollSpace = "insightsScroll"
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    totalsGrid
-                    cravingsChart
-                    TriggerInsightsCard()
-                    moodChart
-                    achievementsCard
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 24)
+            TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                content(at: timeline.date)
             }
-            .background(Color(.systemGroupedBackground))
+            // The screen draws its own large header, so the bar itself stays out of the way. The title is kept for
+            // accessibility. (A custom title in the bar would get a glass capsule on iOS 26.)
             .navigationTitle("Progress")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .onAppear {
+            AchievementTracker.shared.record(achievements(at: .now))
+        }
+        .onDisappear {
+            AchievementTracker.shared.markAllSeen()
         }
     }
 
-    private var totalsGrid: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let totals = HabitTotals(habits: habits, at: timeline.date)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                StatTile(title: "Total saved", value: MoneyFormatter.rounded(totals.moneySaved, code: currencyCode), systemImage: "banknote.fill", tint: .green)
-                StatTile(title: "Time reclaimed", value: DurationFormatter.minutes(totals.minutesReclaimed), systemImage: "clock.fill", tint: .blue)
-                StatTile(title: "Cravings beaten", value: "\(resistedCount)", systemImage: "shield.lefthalf.filled", tint: .purple)
-                StatTile(title: "Longest streak", value: DurationFormatter.compact(totals.bestStreak), systemImage: "trophy.fill", tint: .orange)
+    private func content(at now: Date) -> some View {
+        let cleanDays = CleanDays(habits: habits.map(CleanDaysHabit.init(habit:)), now: now)
+        let currentAchievements = achievements(at: now)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                header
+                RankCard()
+                weekSection(cleanDays, now: now)
+                calendarSection(cleanDays)
+                achievementsSection(currentAchievements)
+                cravingsSection(now: now)
+                TriggerInsightsCard()
+                moodSection(now: now)
+                totalsSection(now: now)
+            }
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .padding(.bottom, 32)
+        }
+        .coordinateSpace(.named(Self.scrollSpace))
+        .onPreferenceChange(InsightsHeaderVisibleKey.self) { visible in
+            Task { @MainActor in
+                if isHeaderVisible != visible {
+                    isHeaderVisible = visible
+                }
+            }
+        }
+        .dawnScreenBackground(glow: glow(for: cleanDays))
+        .overlay(alignment: .top) {
+            topScrim
+        }
+        .onChange(of: currentAchievements.filter(\.isUnlocked).map(\.id)) { _, _ in
+            AchievementTracker.shared.record(currentAchievements)
+        }
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Progress")
+                .font(.screenTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text("Look how far you've come.")
+                .font(.subheadline)
+                .foregroundStyle(Palette.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: InsightsHeaderVisibleKey.self,
+                    value: proxy.frame(in: .named(Self.scrollSpace)).maxY > 0
+                )
             }
         }
     }
 
-    private var cravingsChart: some View {
-        let data = DailyCounts.make(from: urges.filter(\.resisted).map(\.date), days: 14)
-        let isEmpty = data.allSatisfy { $0.count == 0 }
-        return Card(title: "Cravings beaten · last 14 days", systemImage: "chart.bar.fill", tint: .purple) {
-            if isEmpty {
-                placeholder("Tap SOS when a craving hits. Every one you beat shows up here.")
-            } else {
-                Chart(data) { item in
-                    BarMark(
-                        x: .value("Day", item.day, unit: .day),
-                        y: .value("Cravings", item.count)
-                    )
-                    .foregroundStyle(HabitTheme.grape.gradient)
-                    .cornerRadius(5)
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    }
-                }
-                .frame(height: 180)
+    /// Fades in once the header scrolls away, so the status bar stays readable over the content.
+    private var topScrim: some View {
+        LinearGradient(colors: [Palette.ink.opacity(0.92), Palette.ink.opacity(0)], startPoint: .top, endPoint: .bottom)
+            .frame(height: 20)
+            .ignoresSafeArea(edges: .top)
+            .opacity(isHeaderVisible ? 0 : 1)
+            .animation(.easeInOut(duration: 0.2), value: isHeaderVisible)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    /// The more of the last twelve weeks were clean, the warmer the sky.
+    private func glow(for cleanDays: CleanDays) -> Double {
+        let total = max(cleanDays.days.count, 1)
+        return 0.2 + 0.45 * Double(cleanDays.cleanDayCount) / Double(total)
+    }
+
+    // MARK: This week
+
+    private func weekSection(_ cleanDays: CleanDays, now: Date) -> some View {
+        let beaten = CleanDays.count(urges.filter(\.resisted).map(\.date), inLast: 7, now: now)
+        let pledged = CleanDays.count(pledges.map(\.day), inLast: 7, now: now)
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "This week", systemImage: "calendar", tint: Palette.amber, trailing: Text("Last 7 days"))
+            HStack(spacing: 10) {
+                InsightsWeekTile(title: "Clean days", value: cleanDays.cleanDays(inLast: 7), systemImage: "flame.fill", tint: Palette.streak)
+                InsightsWeekTile(title: "Cravings beaten", value: beaten, systemImage: "shield.lefthalf.filled", tint: Palette.cravings)
+                InsightsWeekTile(title: "Pledges", value: pledged, systemImage: "hand.raised.fill", tint: Palette.celebrate)
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var moodChart: some View {
-        let calendar = Calendar.current
-        let cutoff = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: .now)) ?? .distantPast
-        let recent = pledges.filter { $0.day >= cutoff }
-        return Card(title: "Mood · last 30 days", systemImage: "face.smiling", tint: .orange) {
-            if recent.count < 2 {
-                placeholder("Take your daily pledge to see how your mood lifts over time.")
-            } else {
-                Chart(recent) { pledge in
-                    LineMark(
-                        x: .value("Day", pledge.day, unit: .day),
-                        y: .value("Mood", pledge.mood)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(HabitTheme.sunset.gradient)
+    // MARK: Clean days
 
-                    PointMark(
-                        x: .value("Day", pledge.day, unit: .day),
-                        y: .value("Mood", pledge.mood)
-                    )
-                    .foregroundStyle(HabitTheme.sunset.accent)
-                }
-                .chartYScale(domain: 1...5)
-                .chartYAxis {
-                    AxisMarks(values: [1, 3, 5]) { value in
-                        AxisGridLine()
-                        AxisValueLabel {
-                            if let mood = value.as(Int.self) {
-                                Text(MoodScale.emoji(for: mood))
-                            }
-                        }
-                    }
-                }
-                .frame(height: 160)
-            }
+    private func calendarSection(_ cleanDays: CleanDays) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Clean days", systemImage: "sun.horizon.fill", tint: Palette.amber, trailing: Text("Last 12 weeks"))
+            CleanDaysCalendar(model: cleanDays)
         }
     }
 
-    private var achievementsCard: some View {
-        let totals = HabitTotals(habits: habits, at: .now)
+    // MARK: Achievements
+
+    private func achievements(at now: Date) -> [Achievement] {
+        let totals = HabitTotals(habits: habits, at: now)
         let input = AchievementInput(
             habitCount: habits.count,
             bestStreak: totals.bestStreak,
-            cravingsBeaten: resistedCount,
+            cravingsBeaten: urges.filter(\.resisted).count,
             moneySaved: totals.moneySaved,
-            pledgeStreak: StreakCalculator.consecutiveDays(pledges.map(\.day)),
+            pledgeStreak: StreakCalculator.consecutiveDays(pledges.map(\.day), now: now),
             totalPledges: pledges.count
         )
-        let achievements = Achievement.evaluate(input)
+        return Achievement.evaluate(input)
+    }
+
+    private func achievementsSection(_ achievements: [Achievement]) -> some View {
         let unlocked = achievements.filter(\.isUnlocked).count
-        return Card(title: "Achievements · \(unlocked) of \(achievements.count)", systemImage: "rosette", tint: .yellow) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 18) {
+        let columns = [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 150 : 100), spacing: 12)]
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Achievements", systemImage: "rosette", tint: Palette.sun, trailing: Text("\(unlocked) of \(achievements.count)"))
+            LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(achievements) { achievement in
-                    AchievementBadge(achievement: achievement)
+                    InsightsAchievementMedallion(
+                        achievement: achievement,
+                        isNew: AchievementTracker.shared.isNew(achievement.id)
+                    )
                 }
             }
         }
     }
 
-    private func placeholder(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
+    // MARK: Charts
+
+    private func cravingsSection(now: Date) -> some View {
+        let data = DailyCounts.make(from: urges.filter(\.resisted).map(\.date), days: 14, now: now)
+        let total = data.reduce(0) { $0 + $1.count }
+        return InsightsSection(
+            title: "Cravings beaten",
+            systemImage: "shield.lefthalf.filled",
+            tint: Palette.cravings,
+            trailing: Text("Last 14 days")
+        ) {
+            if total == 0 {
+                InsightsPlaceholder(text: "Tap SOS when a craving hits. Every one you beat shows up here.")
+            } else {
+                InsightsHeadline(
+                    value: Text(total, format: .number),
+                    label: Text("beaten in the last two weeks. Every one counts."),
+                    tint: Palette.cravings
+                )
+                InsightsCravingsChart(data: data)
+            }
+        }
+    }
+
+    private func moodSection(now: Date) -> some View {
+        let cutoff = CleanDays.firstDay(ofLast: 30, now: now)
+        let recent = pledges.filter { $0.day >= cutoff }
+        return InsightsSection(
+            title: "Mood",
+            systemImage: "face.smiling",
+            tint: Palette.sun,
+            trailing: Text("Last 30 days")
+        ) {
+            if recent.count < 2 {
+                InsightsPlaceholder(text: "Take your daily pledge to see how your mood lifts over time.")
+            } else {
+                moodHeadline(recent)
+                InsightsMoodChart(pledges: recent)
+            }
+        }
+    }
+
+    private func moodHeadline(_ recent: [Pledge]) -> some View {
+        let average = Double(recent.reduce(0) { $0 + $1.mood }) / Double(max(recent.count, 1))
+        let emoji = MoodScale.emoji(for: Int(average.rounded()))
+        return InsightsHeadline(
+            value: Text(average, format: .number.precision(.fractionLength(1))),
+            label: Text("average mood \(emoji)"),
+            tint: Palette.sun
+        )
+    }
+
+    // MARK: All time
+
+    private func totalsSection(now: Date) -> some View {
+        let totals = HabitTotals(habits: habits, at: now)
+        let beaten = urges.filter(\.resisted).count
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "All time", systemImage: "sparkles", tint: Palette.mint)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                StatTile(title: "Total saved", value: MoneyFormatter.rounded(totals.moneySaved, code: currencyCode), systemImage: "banknote.fill", tint: Palette.money)
+                StatTile(title: "Time reclaimed", value: DurationFormatter.minutes(totals.minutesReclaimed), systemImage: "clock.fill", tint: Palette.time)
+                StatTile(title: "Cravings beaten", value: beaten.formatted(), systemImage: "shield.lefthalf.filled", tint: Palette.cravings)
+                StatTile(title: "Longest streak", value: DurationFormatter.compact(totals.bestStreak), systemImage: "trophy.fill", tint: Palette.streak)
+            }
+        }
     }
 }
 
-private struct AchievementBadge: View {
-    let achievement: Achievement
+/// Whether the Progress header is still on screen (its bottom edge below the top of the scroll view).
+private struct InsightsHeaderVisibleKey: PreferenceKey {
+    static let defaultValue = true
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = nextValue()
+    }
+}
+
+/// One number from the last seven days, in the style of `StatTile` but with room for a two-line label.
+private struct InsightsWeekTile: View {
+    let title: LocalizedStringKey
+    let value: Int
+    let systemImage: String
+    let tint: Color
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            IconBadge(systemImage: systemImage, tint: tint, size: 30)
+            Text(value, format: .number)
+                .font(.display(26))
+                .foregroundStyle(Palette.textPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
+            Text(title)
+                .microLabel()
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
+        .glassSurface(cornerRadius: 20, tint: tint)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// An achievement as a glass medallion: unlocked ones glow in their colors, locked ones wait behind a lock.
+private struct InsightsAchievementMedallion: View {
+    let achievement: Achievement
+    let isNew: Bool
+
+    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 58
+
+    var body: some View {
+        VStack(spacing: 10) {
+            medallion
+            VStack(spacing: 3) {
+                Text(achievement.title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(achievement.isUnlocked ? Palette.textPrimary : Palette.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2, reservesSpace: true)
+                Text(achievement.detail)
+                    .font(.caption2)
+                    .foregroundStyle(Palette.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2, reservesSpace: true)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .padding(.horizontal, 8)
+        .glassSurface(cornerRadius: 20, tint: achievement.isUnlocked ? achievement.theme.accent : nil, highlighted: isNew)
+        .overlay(alignment: .topTrailing) {
+            if isNew {
+                Chip(text: Text("NEW"), tint: Palette.amber, filled: true)
+                    .padding(6)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(accessibilityStatus)
+    }
+
+    @ViewBuilder
+    private var medallion: some View {
+        if achievement.isUnlocked {
             ZStack {
                 Circle()
-                    .fill(achievement.isUnlocked ? AnyShapeStyle(achievement.theme.gradient) : AnyShapeStyle(Color.primary.opacity(0.08)))
-                    .frame(width: 60, height: 60)
-                Image(systemName: achievement.isUnlocked ? achievement.symbol : "lock.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(achievement.isUnlocked ? Color.white : Color.secondary)
+                    .fill(achievement.theme.gradient)
+                Circle()
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.35), .clear], startPoint: .top, endPoint: .center))
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
+                Image(systemName: achievement.symbol)
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundStyle(.white)
             }
-            Text(achievement.title)
-                .font(.caption.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-            Text(achievement.detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
+            .frame(width: size, height: size)
+            .shadow(color: achievement.theme.accent.opacity(0.55), radius: 12)
+            .accessibilityHidden(true)
+        } else {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.05))
+                Circle()
+                    .strokeBorder(Palette.hairline, lineWidth: 1)
+                Image(systemName: "lock.fill")
+                    .font(.system(size: size * 0.3, weight: .semibold))
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
         }
-        .opacity(achievement.isUnlocked ? 1 : 0.55)
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(achievement.isUnlocked ? "Unlocked" : "Locked")
+    }
+
+    private var accessibilityStatus: Text {
+        if !achievement.isUnlocked {
+            return Text("Locked")
+        }
+        return isNew ? Text("Unlocked, new") : Text("Unlocked")
     }
 }
 

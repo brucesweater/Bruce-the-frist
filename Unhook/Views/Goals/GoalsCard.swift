@@ -19,7 +19,7 @@ struct GoalsCard: View {
     }
 
     var body: some View {
-        Card(title: "Savings goals", systemImage: "gift.fill", tint: .pink) {
+        Card(title: "Savings goals", systemImage: "gift.fill", tint: Palette.money) {
             if goals.isEmpty {
                 emptyState
             } else {
@@ -43,16 +43,22 @@ struct GoalsCard: View {
         let nextGoal = activeGoals.first
         return VStack(alignment: .leading, spacing: 14) {
             if let nextGoal {
-                GoalSummaryView(
-                    emoji: nextGoal.emoji,
-                    title: nextGoal.title,
-                    progress: snapshot.progress(for: nextGoal),
-                    currencyCode: currencyCode
-                )
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Saving for")
+                        .microLabel(Palette.amber)
+                    GoalSummaryView(
+                        emoji: nextGoal.emoji,
+                        title: nextGoal.title,
+                        progress: snapshot.progress(for: nextGoal),
+                        currencyCode: currencyCode
+                    )
+                }
             } else {
                 allBoughtState
             }
-            Divider()
+            Rectangle()
+                .fill(Palette.hairline)
+                .frame(height: 1)
             allGoalsRow
         }
     }
@@ -60,10 +66,11 @@ struct GoalsCard: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Reward yourself")
-                .font(.title3.bold())
+                .font(.sectionTitle)
+                .foregroundStyle(Palette.textPrimary)
             Text("Pick something you'd love, like a weekend away or new sneakers. The money you no longer spend on your habit pays for it.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Set a savings goal", action: addGoal)
                 .buttonStyle(PrimaryButtonStyle())
@@ -75,10 +82,11 @@ struct GoalsCard: View {
     private var allBoughtState: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Every goal treated! 🎉")
-                .font(.headline)
+                .font(.cardTitle)
+                .foregroundStyle(Palette.textPrimary)
             Text("What's next? Set a new goal and keep the rewards coming.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Set a savings goal", action: addGoal)
                 .buttonStyle(PrimaryButtonStyle())
@@ -89,15 +97,20 @@ struct GoalsCard: View {
         Button {
             showingAllGoals = true
         } label: {
-            HStack(spacing: 8) {
-                Label("All goals", systemImage: "list.bullet")
+            HStack(spacing: 10) {
+                Image(systemName: "list.bullet")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.amber)
+                    .accessibilityHidden(true)
+                Text("All goals")
+                    .foregroundStyle(Palette.textPrimary)
                 Spacer(minLength: 0)
                 Text(goals.count, format: .number)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .monospacedDigit()
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Palette.textTertiary)
                     .accessibilityHidden(true)
             }
             .font(.subheadline.weight(.semibold))
@@ -107,7 +120,8 @@ struct GoalsCard: View {
         .accessibilityIdentifier("allGoalsButton")
     }
 
-    /// Free users save toward one goal at a time; another active goal opens the Pro paywall.
+    /// Free users save toward one goal at a time; another active goal opens the Pro paywall. While Unhook is
+    /// free (`Monetization.isProEnabled` is false) everyone counts as Pro, so this always opens the editor.
     private func addGoal() {
         if ProLimits.canAddGoal(activeCount: activeGoals.count, isPro: store.isPro) {
             showingEditor = true
@@ -123,7 +137,7 @@ struct GoalsCard: View {
             GoalsCard()
                 .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .dawnScreenBackground()
     }
     .previewEnvironment()
 }

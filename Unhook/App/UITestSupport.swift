@@ -111,10 +111,15 @@ enum UITestSampleData {
 
         // Beaten cravings over the last few weeks, mostly in the evening, with a mix of triggers.
         let triggers: [CravingTrigger] = [.stress, .social, .boredom, .stress, .routine, .tired, .stress, .social, .anxiety, .boredom]
+        let calendar = Calendar.current
+        let eveningHours = [21, 20, 22, 19, 21, 23, 20, 18, 21, 22]
         for index in 0..<26 {
-            let hoursAgo = Double(index) * 41 + Double(index % 3) * 2
+            // Spread over the last five weeks (yesterday and earlier), mostly between 6 and 11 PM.
+            let dayStart = calendar.startOfDay(for: now.addingTimeInterval(-(Double(index) * 1.3 + 1) * day))
+            let hour = index % 6 == 5 ? 15 : eveningHours[index % eveningHours.count]
+            let minutes = hour * 60 + (index * 17) % 50
             let urge = Urge(
-                date: now.addingTimeInterval(-hoursAgo * 3_600),
+                date: calendar.date(byAdding: .minute, value: minutes, to: dayStart) ?? dayStart,
                 resisted: true,
                 trigger: triggers[index % triggers.count],
                 intensity: 1 + (index * 3) % 5
