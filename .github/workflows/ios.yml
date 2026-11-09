@@ -42,9 +42,9 @@ jobs:
           exit "$status"
 
       - name: List localizable strings
-        # Prints the String Catalog keys the compiler extracted, used to keep the translations complete.
+        # Counts the String Catalog keys the compiler extracted (the full list is in the uploaded logs).
         if: ${{ !cancelled() }}
-        run: python3 .github/scripts/dump-strings.py build/DerivedData
+        run: python3 .github/scripts/dump-strings.py build/DerivedData > xcodebuild-strings.log; head -1 xcodebuild-strings.log
 
       - name: Check iOS 26-only frameworks are weak-linked
         # The app supports iOS 17, so frameworks that only exist on iOS 26 (FoundationModels for the
@@ -101,6 +101,16 @@ jobs:
             2>&1 | tee xcodebuild-release.log | grep -E "error:|warning:|\*\* BUILD"
           status=${PIPESTATUS[0]}
           exit "$status"
+
+      - name: Summarize errors
+        # Repeats the compiler and test errors at the very end of the log, so they're easy to find.
+        if: failure()
+        run: |
+          for log in xcodebuild-compile.log xcodebuild-test.log xcodebuild-release.log; do
+            [ -f "$log" ] || continue
+            echo "== $log"
+            grep -E "error:|\*\* (BUILD|TEST BUILD|TEST) FAILED|✘|failed \(" "$log" | grep -v "appintentsnltrainingprocessor" | sort -u | head -60
+          done
 
       - name: Upload logs
         if: always()
