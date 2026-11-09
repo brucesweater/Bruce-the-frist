@@ -13,6 +13,9 @@ Usage:
   asc.py has-app                   print "yes" if Unhook's app record exists, else "no"
   asc.py write-key <path>          write the private key to a .p8 file for xcodebuild
   asc.py from-commit-message       run the commands named in COMMIT_MESSAGE as "[asc <command>]"
+
+Release commands (tools/asc/release.py): metadata, age-rating, review-details, pricing, availability, screenshots,
+event, attach-build, submit, status.
 """
 import json
 import os
@@ -297,6 +300,11 @@ COMMANDS = {
     "inspect": cmd_inspect,
     "check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app, "probe": cmd_probe,
 }
+
+
+import release  # noqa: E402 - the release commands live next to this file
+
+COMMANDS.update(release.COMMANDS)
 
 
 def main(argv):

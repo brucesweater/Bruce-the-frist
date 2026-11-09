@@ -1,0 +1,17 @@
+{
+  "referenceName": "30-Day Reset (Jan 2027)",
+  "badge": "CHALLENGE",
+  "deepLink": "unhook://challenge/reset30",
+  "priority": "HIGH",
+  "purpose": "APPROPRIATE_FOR_ALL_USERS",
+  "publishStart": "2026-12-18T00:00:00Z",
+  "eventStart": "2027-01-01T00:00:00Z",
+  "eventEnd": "2027-01-31T00:00:00Z",
+  "localizations": {
+    "en-US": {
+      "name": "30-Day Reset",
+      "shortDescription": "Start 2027 free: one small step a day.",
+      "longDescription": "Break any habit with one small, doable step a day for 30 days. Daily missions, XP and a fresh start for the new year."
+    }
+  }
+}

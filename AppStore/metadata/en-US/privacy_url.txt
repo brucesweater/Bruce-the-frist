@@ -1,1 +1,1 @@
-REPLACE_ME: the public https URL of your privacy policy (required for every app). Start from AppStore/PRIVACY_POLICY.md and host it on your support site.
+https://onyx-payment-888.notion.site/Unhook-Privacy-Policy-413b68ad1a0f818bb77dd8f06dfb3919
