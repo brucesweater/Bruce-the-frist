@@ -41,7 +41,7 @@ jobs:
     needs: api
     if: ${{ !cancelled() && contains(github.event.head_commit.message, '[asc build') }}
     name: Build and upload to TestFlight
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 60
     env:
       ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
