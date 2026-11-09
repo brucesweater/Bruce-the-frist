@@ -81,6 +81,8 @@ struct SOSView: View {
     /// The craving logged as beaten when the breathing ended. Picking a trigger or a strength updates it, and
     /// breathing again never logs the same craving twice.
     @State private var loggedUrge: Urge?
+    /// False once today's beaten cravings pass the daily XP cap, so the finish screen doesn't promise XP.
+    @State private var earnedXP = true
     @State private var sunRisen = false
     @State private var showingCoach = false
 
@@ -292,7 +294,9 @@ struct SOSView: View {
                 .font(.screenTitle)
                 .foregroundStyle(Palette.textPrimary)
                 .multilineTextAlignment(.center)
-            Chip(text: Text("+20 XP"), tint: Palette.amber, filled: true)
+            if earnedXP {
+                Chip(text: Text("+\(XPRewards.perCravingBeaten) XP"), tint: Palette.amber, filled: true)
+            }
             Text(celebrationLine)
                 .font(.callout)
                 .foregroundStyle(Palette.textSecondary)
@@ -449,7 +453,10 @@ struct SOSView: View {
     /// Logs the craving as beaten, once per visit, on the habit it's about (or the only habit there is).
     private func logBeatenCraving() {
         guard loggedUrge == nil else { return }
-        beatenCount = urges.filter(\.resisted).count + 1
+        let resisted = urges.filter(\.resisted)
+        beatenCount = resisted.count + 1
+        let calendar = Calendar.current
+        earnedXP = resisted.filter { calendar.isDateInToday($0.date) }.count < XPRewards.maxCravingsPerDay
         let urge = Urge(resisted: true, trigger: selectedTrigger, intensity: intensity)
         context.insert(urge)
         if let target = habit ?? (allHabits.count == 1 ? allHabits.first : nil) {

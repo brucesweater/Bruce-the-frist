@@ -157,6 +157,23 @@ struct XPCalculatorTests {
         #expect(summary.xpToNext == 115)
     }
 
+    @Test func beatenCravingsEarnXPUpToADailyCap() {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let now = Self.now
+        // Eight on one day, two the day before: only five of the eight count.
+        let urges = (0..<8).map { Urge(date: now.addingTimeInterval(-Double($0) * 60), resisted: true) }
+            + (0..<2).map { _ in Urge(date: now.addingTimeInterval(-secondsPerDay), resisted: true) }
+        urges.forEach { context.insert($0) }
+        let summary = XPCalculator.summary(
+            habits: [], pledges: [], urges: urges, missions: [], challenges: [],
+            unlockedAchievementCount: 0, now: now, calendar: utc
+        )
+        let cravings = summary.sources.first { $0.kind == .cravings }
+        #expect(cravings?.count == XPRewards.maxCravingsPerDay + 2)
+        #expect(cravings?.xp == (XPRewards.maxCravingsPerDay + 2) * XPRewards.perCravingBeaten)
+    }
+
     @Test func aSlipNeverLowersXP() {
         let container = AppModelContainer.make(inMemory: true)
         let context = ModelContext(container)

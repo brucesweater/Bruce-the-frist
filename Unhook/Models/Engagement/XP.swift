@@ -9,6 +9,8 @@ enum XPRewards {
     static let perPerfectDay = 15
     static let perChallengeDay = 25
     static let perAchievement = 50
+    /// Beaten cravings that earn XP each day, so opening SOS over and over can't farm XP.
+    static let maxCravingsPerDay = 5
 }
 
 /// One way of earning XP and how often the user has done it, for "How to earn XP".
@@ -42,7 +44,7 @@ extension XPSource.Kind {
         switch self {
         case .cleanDays: String(localized: "Each clean day")
         case .pledges: String(localized: "Each daily pledge")
-        case .cravings: String(localized: "Each craving you beat")
+        case .cravings: String(localized: "Each craving you beat, up to \(XPRewards.maxCravingsPerDay) a day")
         case .missions: String(localized: "Each daily mission")
         case .perfectDays: String(localized: "All 3 missions in a day")
         case .challengeDays: String(localized: "Each 30-Day Reset step")
@@ -110,8 +112,12 @@ enum XPCalculator {
         let cleanDays = (cleanSeconds / 86_400).rounded(.down).clampedWholeNumber
 
         let pledgeDays = Set(pledges.map { EngagementCalendar.dayIndex(for: $0.day, calendar: calendar) })
-        let resisted = urges.filter(\.resisted)
-        let cravingDays = Set(resisted.map { EngagementCalendar.dayIndex(for: $0.date, calendar: calendar) })
+        var cravingsByDay: [Int: Int] = [:]
+        for urge in urges where urge.resisted {
+            cravingsByDay[EngagementCalendar.dayIndex(for: urge.date, calendar: calendar), default: 0] += 1
+        }
+        let cravingDays = Set(cravingsByDay.keys)
+        let countedCravings = cravingsByDay.values.reduce(0) { $0 + min($1, XPRewards.maxCravingsPerDay) }
         var checkedByDay: [Int: Set<String>] = [:]
         for completion in missions {
             let day = EngagementCalendar.dayIndex(for: completion.day, calendar: calendar)
@@ -123,7 +129,7 @@ enum XPCalculator {
         let sources = [
             XPSource(kind: .cleanDays, count: cleanDays),
             XPSource(kind: .pledges, count: pledgeDays.count),
-            XPSource(kind: .cravings, count: resisted.count),
+            XPSource(kind: .cravings, count: countedCravings),
             XPSource(kind: .missions, count: tally.missions),
             XPSource(kind: .perfectDays, count: tally.perfectDays),
             XPSource(kind: .challengeDays, count: challengeDays),

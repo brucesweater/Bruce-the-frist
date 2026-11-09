@@ -135,7 +135,6 @@ enum UITestSampleData {
         }
 
         // One of today's missions already checked off, and a 30-Day Reset on day 5 with days 1-4 done.
-        let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         if let mission = DailyMissions.missions(for: now, calendar: calendar).first(where: { $0.kind == .selfReported }) {
             context.insert(MissionCompletion(day: today, missionID: mission.id, completedAt: now))
