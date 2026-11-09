@@ -48,11 +48,12 @@ struct StatTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText())
-            // The label wraps instead of cutting off at larger text sizes. Unit names are typed by the
+            // One line that shrinks a little at the usual sizes, so tiles side by side stay the same height. From
+            // the largest standard size up the label wraps instead of cutting off; unit names are typed by the
             // user and can be long, so accessibility sizes get as many lines as they need.
             Text(title)
                 .microLabel()
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : (dynamicTypeSize >= .xxLarge ? 2 : 1))
                 .minimumScaleFactor(0.8)
                 .fixedSize(horizontal: false, vertical: true)
         }

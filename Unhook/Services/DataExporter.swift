@@ -125,7 +125,7 @@ enum DataExporter {
     }
 
     struct PledgeRecord: Codable, Equatable {
-        /// Start of the day the pledge belongs to.
+        /// The date the pledge belongs to, saved without a time zone (00:00 UTC on that date; see `StoredDay`).
         let day: Date
         /// 1 (rough) … 5 (great).
         let mood: Int
@@ -274,7 +274,7 @@ enum DataExporter {
     static func csv(for archive: Archive, timeZone: TimeZone = .current) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = timeZone
-        let rows = timeline(for: archive).map { event in
+        let rows = timeline(for: archive, timeZone: timeZone).map { event in
             [formatter.string(from: event.date), event.type, event.habit, event.detail]
                 .map { csvField($0) }
                 .joined(separator: ",")
@@ -300,8 +300,10 @@ enum DataExporter {
         let detail: String
     }
 
-    private static func timeline(for archive: Archive) -> [TimelineEvent] {
+    private static func timeline(for archive: Archive, timeZone: TimeZone) -> [TimelineEvent] {
         var events: [TimelineEvent] = []
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         for habit in archive.habits {
             events.append(TimelineEvent(date: habit.createdAt, type: "habit_added", habit: habit.name, detail: detail(for: habit)))
             for relapse in habit.relapses {
@@ -315,7 +317,9 @@ enum DataExporter {
             events.append(event(for: urge, habit: ""))
         }
         for pledge in archive.pledges {
-            events.append(TimelineEvent(date: pledge.day, type: "pledge", habit: "", detail: "mood: \(pledge.mood)/5"))
+            // Pledge days are saved as a date without a time zone; show the start of that date where it's read.
+            let day = StoredDay.localStart(of: pledge.day, calendar: calendar)
+            events.append(TimelineEvent(date: day, type: "pledge", habit: "", detail: "mood: \(pledge.mood)/5"))
         }
         for goal in archive.savingsGoals {
             let detail = "\(goal.emoji) \(goal.title); cost: \(number(goal.cost))"

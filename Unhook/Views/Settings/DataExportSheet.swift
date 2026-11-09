@@ -53,7 +53,7 @@ struct DataExportSheet: View {
                 .font(.system(.title2, design: .rounded).weight(.bold))
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
-            Text("Every habit, slip, craving, pledge and savings goal in one file. It stays on your device until you choose where to send it.")
+            Text("Every habit, slip, craving, pledge, savings goal, daily mission and 30-Day Reset step in one file. It stays on your device until you choose where to send it.")
                 .font(.subheadline)
                 .foregroundStyle(Palette.textSecondary)
         }

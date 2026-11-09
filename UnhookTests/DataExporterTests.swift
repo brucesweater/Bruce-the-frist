@@ -167,6 +167,21 @@ struct DataExporterTests {
 
     // MARK: CSV
 
+    @Test func csvDatesAPledgeOnItsOwnDayWestOfUTC() throws {
+        let container = AppModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let newYork = try Self.timeZone("America/New_York")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = newYork
+        // 9 Nov 2026, 21:00 in New York (02:00 UTC on 10 Nov): the pledge belongs to 9 Nov.
+        let evening = Date(timeIntervalSince1970: 1_794_276_000)
+        context.insert(Pledge(day: evening, mood: 4, calendar: calendar))
+
+        let csv = try DataExporter.exportCSV(context: context, timeZone: newYork)
+        let row = try #require(csv.components(separatedBy: "\r\n").first { $0.contains(",pledge,") })
+        #expect(row.hasPrefix("2026-11-09T00:00:00-05:00,pledge,"))
+    }
+
     @Test func csvHasOneRowPerEventOldestFirst() throws {
         let container = AppModelContainer.make(inMemory: true)
         let context = ModelContext(container)
