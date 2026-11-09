@@ -151,7 +151,7 @@ final class ScreenshotTests: XCTestCase {
         tap(["Continue"], in: app)
         pause(1)
         snap("34-onboarding-reasons", app)
-        tap(["Continue", "Skip", "Next"], in: app)
+        tap(["Continue", "Skip for now", "Skip", "Next"], in: app, partial: true)
         pause(1.5)
         snap("35-onboarding-projection", app)
         tap(["Let's do this", "Continue"], in: app)

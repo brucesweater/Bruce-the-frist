@@ -4,6 +4,7 @@ name: App Store
 #   [asc check] [asc register] [asc app] [asc create-app]   API commands (tools/asc/asc.py), on Linux
 #   [asc build]   archive with Xcode, sign with cloud signing, and upload to TestFlight (or only export the signed
 #                 build while the app record doesn't exist yet), on macOS
+#   [asc build-nogroups]   the same without the App Group entitlement (widgets then can't read the app's data)
 # The private key is the ASC_PRIVATE_KEY repository secret. The key ID and issuer ID below aren't secret on their
 # own: they only work together with that key.
 on:
@@ -38,7 +39,7 @@ jobs:
 
   build:
     needs: api
-    if: ${{ !cancelled() && contains(github.event.head_commit.message, '[asc build]') }}
+    if: ${{ !cancelled() && contains(github.event.head_commit.message, '[asc build') }}
     name: Build and upload to TestFlight
     runs-on: macos-15
     timeout-minutes: 60
@@ -70,8 +71,15 @@ jobs:
           echo "DESTINATION=$(python3 tools/asc/asc.py has-app | grep -q yes && echo upload || echo export)" >> "$GITHUB_ENV"
 
       - name: Archive
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -o pipefail
+          extra=()
+          if [[ "$COMMIT_MESSAGE" == *"[asc build-nogroups]"* ]]; then
+            echo "Building without the App Group entitlement."
+            extra+=(CODE_SIGN_ENTITLEMENTS=)
+          fi
           xcodebuild archive \
             -project Unhook.xcodeproj \
             -scheme Unhook \
@@ -84,6 +92,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            "${extra[@]}" \
             2>&1 | tee xcodebuild-archive.log | grep -E "error:|warning: .*(sign|provision|entitlement)|\*\* ARCHIVE"
 
       - name: Sign, then upload to TestFlight (or export while there's no app record)

@@ -146,7 +146,8 @@ def cmd_register(api):
             }})
             bundle_pk = created["data"]["id"]
             print(f"Registered {identifier} (id {bundle_pk}).")
-        capabilities = api.get_all(f"/v1/bundleIds/{bundle_pk}/bundleIdCapabilities")
+        # Relationship endpoints don't accept paging parameters.
+        capabilities = api.request("GET", f"/v1/bundleIds/{bundle_pk}/bundleIdCapabilities").get("data", [])
         if any(c["attributes"]["capabilityType"] == "APP_GROUPS" for c in capabilities):
             print(f"  App Groups is already on for {identifier}.")
             continue
@@ -200,7 +201,21 @@ def cmd_create_app(api):
                 return
 
 
-COMMANDS = {"check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app}
+def cmd_probe(api):
+    """Checks whether this API version can manage App Groups (widgets share data with the app through one)."""
+    for path in ("/v1/appGroups", "/v1/bundleIds/{id}/appGroups"):
+        bundle = api.bundle_id(BUNDLE_PREFIX)
+        url = path.replace("{id}", bundle["id"] if bundle else "none")
+        try:
+            data = api.request("GET", url)
+            print(f"GET {path}: OK, {len(data.get('data', []))} item(s)")
+        except APIError as error:
+            print(f"GET {path}: {error.status} {error.body[:300]}")
+
+
+COMMANDS = {
+    "check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app, "probe": cmd_probe,
+}
 
 
 def main(argv):
