@@ -5,6 +5,7 @@ import SwiftData
 enum AppModelContainer {
     static let modelTypes: [any PersistentModel.Type] = [
         Habit.self, Relapse.self, Urge.self, Pledge.self, SavingsGoal.self,
+        MissionCompletion.self, ChallengeProgress.self,
     ]
 
     static var schema: Schema { Schema(modelTypes) }
