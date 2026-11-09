@@ -42,7 +42,7 @@ struct HomeView: View {
             }
             .dawnScreenBackground(glow: skyGlow)
             .overlay(alignment: .top) {
-                TodayStatusBarScrim()
+                StatusBarScrim()
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !habits.isEmpty {
@@ -253,25 +253,6 @@ private struct TodayGreeting {
 }
 
 // MARK: - Chrome
-
-/// Softly darkens the status bar area so cards scrolling under it don't collide with the clock.
-private struct TodayStatusBarScrim: View {
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: Palette.ink.opacity(0.94), location: 0),
-                .init(color: Palette.ink.opacity(0.8), location: 0.6),
-                .init(color: Palette.ink.opacity(0), location: 1),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea(edges: .top)
-        .frame(height: 0)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
 
 /// The SOS button pinned above the tab bar, on a soft fade so the cards scrolling beneath don't look cut off.
 private struct TodaySOSDock: View {

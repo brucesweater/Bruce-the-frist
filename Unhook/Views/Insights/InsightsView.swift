@@ -10,11 +10,6 @@ struct InsightsView: View {
     @AppStorage(AppSettings.Keys.currencyCode) private var currencyCode = AppSettings.defaultCurrencyCode
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// False once the big "Progress" header has scrolled away; a scrim then keeps the status bar readable.
-    @State private var isHeaderVisible = true
-
-    private static let scrollSpace = "insightsScroll"
-
     var body: some View {
         NavigationStack {
             TimelineView(.periodic(from: .now, by: 60)) { timeline in
@@ -53,17 +48,9 @@ struct InsightsView: View {
             .padding(.top, 4)
             .padding(.bottom, 32)
         }
-        .coordinateSpace(.named(Self.scrollSpace))
-        .onPreferenceChange(InsightsHeaderVisibleKey.self) { visible in
-            Task { @MainActor in
-                if isHeaderVisible != visible {
-                    isHeaderVisible = visible
-                }
-            }
-        }
         .dawnScreenBackground(glow: glow(for: cleanDays))
         .overlay(alignment: .top) {
-            topScrim
+            StatusBarScrim()
         }
         .onChange(of: currentAchievements.filter(\.isUnlocked).map(\.id)) { _, _ in
             AchievementTracker.shared.record(currentAchievements)
@@ -83,25 +70,6 @@ struct InsightsView: View {
                 .foregroundStyle(Palette.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: InsightsHeaderVisibleKey.self,
-                    value: proxy.frame(in: .named(Self.scrollSpace)).maxY > 0
-                )
-            }
-        }
-    }
-
-    /// Fades in once the header scrolls away, so the status bar stays readable over the content.
-    private var topScrim: some View {
-        LinearGradient(colors: [Palette.ink.opacity(0.92), Palette.ink.opacity(0)], startPoint: .top, endPoint: .bottom)
-            .frame(height: 20)
-            .ignoresSafeArea(edges: .top)
-            .opacity(isHeaderVisible ? 0 : 1)
-            .animation(.easeInOut(duration: 0.2), value: isHeaderVisible)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 
     /// The more of the last twelve weeks were clean, the warmer the sky.
@@ -236,14 +204,6 @@ struct InsightsView: View {
 }
 
 /// Whether the Progress header is still on screen (its bottom edge below the top of the scroll view).
-private struct InsightsHeaderVisibleKey: PreferenceKey {
-    static let defaultValue = true
-
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = nextValue()
-    }
-}
-
 /// One number from the last seven days, in the style of `StatTile` but with room for a two-line label.
 private struct InsightsWeekTile: View {
     let title: LocalizedStringKey

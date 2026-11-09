@@ -81,6 +81,26 @@ extension View {
 
 // MARK: - Background
 
+/// A soft fade behind the status bar for screens that hide the navigation bar, so content scrolling up doesn't run
+/// into the clock and battery. Put it in a top-aligned overlay on the screen's scroll view.
+struct StatusBarScrim: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Palette.ink.opacity(0.94), location: 0),
+                .init(color: Palette.ink.opacity(0.8), location: 0.6),
+                .init(color: Palette.ink.opacity(0), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea(edges: .top)
+        .frame(height: 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 /// The deep night sky behind every screen, with soft aurora light and a few stars. `glow` raises a warm dawn
 /// light from the bottom (0 = night, 1 = sunrise). Static, so it costs nothing while scrolling.
 struct DawnBackground: View {
