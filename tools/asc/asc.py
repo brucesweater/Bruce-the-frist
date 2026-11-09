@@ -9,6 +9,9 @@ Usage:
   asc.py check                     verify the key; list apps, bundle IDs and the team ID
   asc.py register                  register Unhook's bundle IDs and turn on App Groups
   asc.py app                       print Unhook's app record (after it is created on the website)
+  asc.py create-app                try to create the app record through the API
+  asc.py has-app                   print "yes" if Unhook's app record exists, else "no"
+  asc.py write-key <path>          write the private key to a .p8 file for xcodebuild
   asc.py from-commit-message       run the commands named in COMMIT_MESSAGE as "[asc <command>]"
 """
 import json
@@ -21,7 +24,7 @@ import jwt
 import requests
 
 BASE = "https://api.appstoreconnect.apple.com"
-BUNDLE_PREFIX = os.environ.get("UNHOOK_BUNDLE_PREFIX", "com.bruce.unhook")
+BUNDLE_PREFIX = os.environ.get("UNHOOK_BUNDLE_PREFIX", "com.brucegao.unhook")
 BUNDLES = [
     (BUNDLE_PREFIX, "Unhook"),
     (BUNDLE_PREFIX + ".widgets", "Unhook Widgets"),
@@ -171,7 +174,33 @@ def cmd_app(api):
         print(f"  version {va.get('versionString')} | {va.get('appStoreState') or va.get('appVersionState')} | id {v['id']}")
 
 
-COMMANDS = {"check": cmd_check, "register": cmd_register, "app": cmd_app}
+APP_NAME_CANDIDATES = ["Unhook: Quit Bad Habits", "Unhook - Quit Bad Habits", "Unhook: Habit Quit Tracker", "Unhook Quit Tracker"]
+
+
+def cmd_create_app(api):
+    """Apple has historically only allowed creating app records on the website; try the API anyway."""
+    if api.app():
+        print("The app record already exists.")
+        return
+    bundle = api.bundle_id(BUNDLE_PREFIX)
+    if not bundle:
+        raise SystemExit(f"Register {BUNDLE_PREFIX} first ([asc register]).")
+    for name in APP_NAME_CANDIDATES:
+        try:
+            created = api.request("POST", "/v1/apps", body={"data": {
+                "type": "apps",
+                "attributes": {"name": name, "bundleId": BUNDLE_PREFIX, "sku": "unhook", "primaryLocale": "en-US"},
+            }})
+            print(f"Created the app record \"{name}\" (id {created['data']['id']}).")
+            return
+        except APIError as error:
+            print(f"Creating \"{name}\" failed: {error.status} {error.body[:400]}")
+            if error.status in (403, 404, 405):
+                print("The API doesn't allow creating apps; it has to be done on the App Store Connect website.")
+                return
+
+
+COMMANDS = {"check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app}
 
 
 def main(argv):
@@ -179,10 +208,23 @@ def main(argv):
         print(__doc__)
         return 2
     command = argv[1]
+    if command == "write-key":
+        path = argv[2]
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(normalized_private_key(os.environ.get("ASC_PRIVATE_KEY", "")))
+        os.chmod(path, 0o600)
+        print(f"Wrote the API key to {path}.")
+        return 0
+    if command == "has-app":
+        print("yes" if ASC().app() else "no")
+        return 0
     if command == "from-commit-message":
         message = os.environ.get("COMMIT_MESSAGE", "")
-        names = re.findall(r"\[asc ([a-z-]+)\]", message)
-        names = [n for n in names if n in COMMANDS]
+        names = []
+        for name in re.findall(r"\[asc ([a-z-]+)\]", message):
+            if name in COMMANDS and name not in names:
+                names.append(name)
         if not names:
             print("No App Store Connect API command in the commit message.")
             return 0

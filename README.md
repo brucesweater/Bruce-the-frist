@@ -44,7 +44,7 @@ It's built with SwiftUI, SwiftData, StoreKit 2, App Intents, WidgetKit and Apple
 
 **On your own iPhone:**
 
-1. In the project's build settings, change **`UNHOOK_BUNDLE_PREFIX`** (default `com.bruce.unhook`) to something unique, such as `com.yourname.unhook`. It sets the app, widget and test bundle IDs and the App Group in one place.
+1. In the project's build settings, change **`UNHOOK_BUNDLE_PREFIX`** (default `com.brucegao.unhook`) to something unique, such as `com.yourname.unhook`. It sets the app, widget and test bundle IDs and the App Group in one place.
 2. Select your **Team** under *Signing & Capabilities* for the **Unhook** and **UnhookWidgets** targets.
 3. Plug in your iPhone and press **⌘R**.
 
