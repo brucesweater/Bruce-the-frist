@@ -1,0 +1,17 @@
+{
+  "referenceName": "New Year Reset 2027",
+  "badge": "CHALLENGE",
+  "deepLink": "unhook://challenge/reset30",
+  "priority": "HIGH",
+  "purpose": "APPROPRIATE_FOR_ALL_USERS",
+  "publishStart": "2026-12-18T08:00:00Z",
+  "eventStart": "2027-01-01T08:00:00Z",
+  "eventEnd": "2027-02-01T07:59:00Z",
+  "localizations": {
+    "en-US": {
+      "name": "New Year Reset 2027",
+      "shortDescription": "Start 2027 strong: one small step a day.",
+      "longDescription": "Begin the 30-Day Reset in January: one small, practical step a day to break a habit, for a fresh start in 2027."
+    }
+  }
+}

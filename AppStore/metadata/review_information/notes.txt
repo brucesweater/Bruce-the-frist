@@ -1,0 +1,19 @@
+Thank you for reviewing Unhook.
+
+FREE, NO LOGIN: Unhook is completely free (no in-app purchases, no ads) and has no accounts and no server. No demo account is needed. All data is stored on the device with SwiftData.
+
+QUICK TEST (about 3 minutes)
+1. Onboarding: pick a habit (for example Vaping), choose "Just now", enter a rough daily cost, pick reasons or tap "Skip for now", see the one-year projection, then choose "Maybe later" or turn on reminders.
+2. Today tab: the dawn orb shows the live streak. Below it are today's three missions (tap one to check it off), the 30-Day Reset challenge card, the daily pledge, the habit list and a tip of the day.
+3. Tap "Craving? Tap for SOS" at the bottom of Today for the 60-second guided breathing exercise.
+4. Tap "Talk to your coach" on Today. On devices without Apple Intelligence the coach uses replies built into the app; on supported devices it uses Apple's on-device Foundation Models. Messages never leave the device. Messages that mention self-harm get a fixed, caring reply with a link to findahelpline.com, and messages describing a possible medical emergency (for example a seizure or chest pain) are told to call emergency services.
+AI SAFETY: The on-device model runs with Apple's default guardrails. If a guardrail blocks a reply, the coach shows a caring reply and the helpline banner instead. Every coach reply can be reported: touch and hold it, then choose "Report this reply" (opens an email to the developer with the reply filled in). The coach screen reminds people it isn't a doctor.
+5. Tap the 30-Day Reset card (or open unhook://challenge/reset30) to open the 30-day challenge.
+6. Progress tab: rank and XP, a calendar of clean days, charts, craving insights and achievements.
+7. Settings > Meet the founder: the developer's story, his Instagram and his other apps (opens in Instagram / the App Store).
+
+HEALTH CONTENT: Unhook is a self-help tool. The recovery timeline uses cautious wording (the smoking one is adapted from public WHO and NHS pages, and the app says it is not connected to or endorsed by them), says it is general information, not medical advice, and reminds people to check with a doctor. Choosing Alcohol shows a warning that stopping heavy daily drinking suddenly can be dangerous, and choosing "Something else" shows a note to talk to a doctor before stopping a drug or a daily medicine. The coach does not answer questions about withdrawal symptoms or medicine: it tells the person to talk to a doctor or pharmacist. The app links to findahelpline.com for free crisis support. Porn, alcohol, cannabis and gambling appear only as habits the user chooses to quit, each with a few suggested reasons and a general recovery timeline: the app has no sexual imagery or explicit text and sells nothing age-restricted.
+
+PRIVACY: no data collection, no tracking, no third-party SDKs. Face ID is used only for the optional app lock.
+
+Contact: gaojiaxuan2@gmail.com

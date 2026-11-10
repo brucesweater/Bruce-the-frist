@@ -1,0 +1,148 @@
+name: App Store
+
+# Release automation with the App Store Connect API. A job runs when a pushed commit message names it:
+#   [asc check] [asc register] [asc app] [asc create-app]   API commands (tools/asc/asc.py), on Linux
+#   [asc build]   archive with Xcode, sign with cloud signing, and upload to TestFlight (or only export the signed
+#                 build while the app record doesn't exist yet), on macOS
+#   [asc build-nogroups]   the same without the App Group entitlement (widgets then can't read the app's data)
+# The private key is the ASC_PRIVATE_KEY repository secret. The key ID and issuer ID below aren't secret on their
+# own: they only work together with that key.
+on:
+  push:
+    branches: ['claude/**', 'main']
+
+permissions:
+  contents: read
+
+env:
+  ASC_KEY_ID: 23US7Q78B8
+  ASC_ISSUER_ID: 26484742-92b7-4b33-840c-c94e1292503c
+  TEAM_ID: V285DXY77R
+
+jobs:
+  api:
+    if: contains(github.event.head_commit.message, '[asc ')
+    name: App Store Connect API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet 'pyjwt[crypto]' requests
+      - name: Run the commands in the commit message
+        env:
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: python3 tools/asc/asc.py from-commit-message
+
+  build:
+    needs: api
+    if: ${{ !cancelled() && contains(github.event.head_commit.message, '[asc build') }}
+    name: Build and upload to TestFlight
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the newest Xcode 26
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -1)
+          echo "Using $xcode"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+
+      - name: Prepare the API key and a build keychain
+        run: |
+          pip3 install --quiet --break-system-packages 'pyjwt[crypto]' requests || pip3 install --quiet 'pyjwt[crypto]' requests
+          key_path="$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          python3 tools/asc/asc.py write-key "$key_path"
+          echo "KEY_PATH=$key_path" >> "$GITHUB_ENV"
+          keychain="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s "$keychain"
+          echo "BUILD_NUMBER=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_ENV"
+          echo "DESTINATION=$(python3 tools/asc/asc.py has-app | grep -q yes && echo upload || echo export)" >> "$GITHUB_ENV"
+
+      - name: Archive
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -o pipefail
+          extra=()
+          if [[ "$COMMIT_MESSAGE" == *"[asc build-nogroups]"* ]]; then
+            echo "Building without the App Group entitlement."
+            extra+=(CODE_SIGN_ENTITLEMENTS=)
+          fi
+          xcodebuild archive \
+            -project Unhook.xcodeproj \
+            -scheme Unhook \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Unhook.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            "${extra[@]}" \
+            2>&1 | tee xcodebuild-archive.log | grep -E "error:|warning: .*(sign|provision|entitlement)|\*\* ARCHIVE"
+
+      - name: Sign, then upload to TestFlight (or export while there's no app record)
+        run: |
+          set -o pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>$DESTINATION</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          echo "Build $BUILD_NUMBER, destination: $DESTINATION"
+          xcodebuild -exportArchive \
+            -archivePath build/Unhook.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee xcodebuild-export.log | grep -E "error:|Upload|upload|EXPORT|Exported"
+          ls -la build/export || true
+
+      - name: Show what was signed
+        if: always()
+        run: |
+          ipa=$(ls build/export/*.ipa 2>/dev/null | head -1)
+          [ -n "$ipa" ] || { echo "No IPA exported."; exit 0; }
+          mkdir -p build/ipa && unzip -q -o "$ipa" -d build/ipa
+          for target in build/ipa/Payload/*.app build/ipa/Payload/*.app/PlugIns/*.appex; do
+            echo "== $target"
+            codesign -d --entitlements :- "$target" 2>/dev/null | plutil -convert xml1 -o - - 2>/dev/null | grep -A3 -E "application-groups|application-identifier" || true
+          done
+
+      - name: Clean up the keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appstore-build-logs
+          path: xcodebuild-*.log
+          if-no-files-found: ignore

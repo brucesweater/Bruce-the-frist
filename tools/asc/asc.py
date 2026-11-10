@@ -1,0 +1,350 @@
+#!/usr/bin/env python3
+"""A small App Store Connect API client for Unhook's release automation. Runs in GitHub Actions.
+
+Credentials come from the environment: ASC_KEY_ID, ASC_ISSUER_ID and ASC_PRIVATE_KEY (the contents of the .p8 file,
+stored as a repository secret). The Actions logs of this public repository are public, so this script never prints
+secrets or personal data such as phone numbers.
+
+Usage:
+  asc.py check                     verify the key; list apps, bundle IDs and the team ID
+  asc.py register                  register Unhook's bundle IDs and turn on App Groups
+  asc.py app                       print Unhook's app record (after it is created on the website)
+  asc.py create-app                try to create the app record through the API
+  asc.py has-app                   print "yes" if Unhook's app record exists, else "no"
+  asc.py write-key <path>          write the private key to a .p8 file for xcodebuild
+  asc.py from-commit-message       run the commands named in COMMIT_MESSAGE as "[asc <command>]"
+
+Release commands (tools/asc/release.py): metadata, age-rating, review-details, pricing, availability, screenshots,
+event, creative, attach-build, submit, submit-event, status.
+"""
+import json
+import os
+import re
+import sys
+import time
+
+import jwt
+import requests
+
+BASE = "https://api.appstoreconnect.apple.com"
+BUNDLE_PREFIX = os.environ.get("UNHOOK_BUNDLE_PREFIX", "com.brucegao.unhook")
+BUNDLES = [
+    (BUNDLE_PREFIX, "Unhook"),
+    (BUNDLE_PREFIX + ".widgets", "Unhook Widgets"),
+]
+
+
+class APIError(Exception):
+    def __init__(self, method, path, status, body):
+        super().__init__(f"{method} {path} -> {status}: {body[:1500]}")
+        self.status = status
+        self.body = body
+
+
+def normalized_private_key(raw):
+    """Accepts the .p8 contents however they were pasted (CRLF, missing newlines, surrounding spaces)."""
+    key = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+    match = re.search(r"-----BEGIN PRIVATE KEY-----(.*?)-----END PRIVATE KEY-----", key, re.S)
+    if not match:
+        raise SystemExit("ASC_PRIVATE_KEY doesn't look like a .p8 key (no BEGIN/END PRIVATE KEY lines).")
+    body = re.sub(r"\s+", "", match.group(1))
+    lines = [body[i:i + 64] for i in range(0, len(body), 64)]
+    return "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+
+
+class ASC:
+    def __init__(self):
+        missing = [name for name in ("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY") if not os.environ.get(name)]
+        if missing:
+            raise SystemExit("Missing " + ", ".join(missing) + ". Add the ASC_PRIVATE_KEY repository secret.")
+        self.key_id = os.environ["ASC_KEY_ID"].strip()
+        self.issuer_id = os.environ["ASC_ISSUER_ID"].strip()
+        self.private_key = normalized_private_key(os.environ["ASC_PRIVATE_KEY"])
+        self._token = None
+        self._expires = 0
+
+    def token(self):
+        now = int(time.time())
+        if self._token is None or now > self._expires - 60:
+            self._expires = now + 15 * 60
+            self._token = jwt.encode(
+                {"iss": self.issuer_id, "iat": now, "exp": self._expires, "aud": "appstoreconnect-v1"},
+                self.private_key,
+                algorithm="ES256",
+                headers={"kid": self.key_id, "typ": "JWT"},
+            )
+        return self._token
+
+    def request(self, method, path, params=None, body=None):
+        url = path if path.startswith("http") else BASE + path
+        response = None
+        for attempt in range(5):
+            response = requests.request(
+                method, url, params=params,
+                data=None if body is None else json.dumps(body),
+                headers={"Authorization": "Bearer " + self.token(), "Content-Type": "application/json"},
+                timeout=90,
+            )
+            if response.status_code in (429, 500, 502, 503, 504):
+                time.sleep(3 * (attempt + 1))
+                continue
+            break
+        if response.status_code >= 400:
+            raise APIError(method, path, response.status_code, response.text)
+        return response.json() if response.content else {}
+
+    def get_all(self, path, params=None):
+        items, url, query = [], path, dict(params or {})
+        query.setdefault("limit", 200)
+        while url:
+            page = self.request("GET", url, params=query)
+            items.extend(page.get("data", []))
+            url = page.get("links", {}).get("next")
+            query = None  # the next link already carries the query
+        return items
+
+    def bundle_id(self, identifier):
+        found = self.get_all("/v1/bundleIds", {"filter[identifier]": identifier})
+        return next((b for b in found if b["attributes"]["identifier"] == identifier), None)
+
+    def app(self, bundle_identifier=BUNDLE_PREFIX):
+        found = self.get_all("/v1/apps", {"filter[bundleId]": bundle_identifier})
+        return next((a for a in found if a["attributes"]["bundleId"] == bundle_identifier), None)
+
+
+def cmd_check(api):
+    apps = api.get_all("/v1/apps")
+    print(f"The API key works. {len(apps)} app(s) on this team:")
+    for a in apps:
+        attrs = a["attributes"]
+        print(f"  - {attrs.get('name')} | {attrs.get('bundleId')} | sku {attrs.get('sku')} | "
+              f"{attrs.get('primaryLocale')} | id {a['id']}")
+    bundles = api.get_all("/v1/bundleIds")
+    teams = sorted({b["attributes"].get("seedId") for b in bundles if b["attributes"].get("seedId")})
+    print(f"{len(bundles)} bundle ID(s). Team ID(s): {', '.join(teams) or 'unknown'}")
+    for b in bundles:
+        attrs = b["attributes"]
+        print(f"  - {attrs['identifier']} | {attrs['name']} | {attrs['platform']}")
+    for identifier, _ in BUNDLES:
+        print(f"{identifier}: {'registered' if api.bundle_id(identifier) else 'not registered yet'}")
+    certs = api.get_all("/v1/certificates")
+    kinds = {}
+    for c in certs:
+        kinds[c["attributes"]["certificateType"]] = kinds.get(c["attributes"]["certificateType"], 0) + 1
+    print("Certificates by type:", json.dumps(kinds, sort_keys=True))
+    app = api.app()
+    print("Unhook app record:", f"exists (id {app['id']})" if app else "not created yet")
+
+
+def cmd_register(api):
+    for identifier, name in BUNDLES:
+        existing = api.bundle_id(identifier)
+        if existing:
+            print(f"{identifier} is already registered (id {existing['id']}).")
+            bundle_pk = existing["id"]
+        else:
+            created = api.request("POST", "/v1/bundleIds", body={"data": {
+                "type": "bundleIds",
+                "attributes": {"identifier": identifier, "name": name, "platform": "IOS"},
+            }})
+            bundle_pk = created["data"]["id"]
+            print(f"Registered {identifier} (id {bundle_pk}).")
+        # Relationship endpoints don't accept paging parameters.
+        capabilities = api.request("GET", f"/v1/bundleIds/{bundle_pk}/bundleIdCapabilities").get("data", [])
+        if any(c["attributes"]["capabilityType"] == "APP_GROUPS" for c in capabilities):
+            print(f"  App Groups is already on for {identifier}.")
+            continue
+        try:
+            api.request("POST", "/v1/bundleIdCapabilities", body={"data": {
+                "type": "bundleIdCapabilities",
+                "attributes": {"capabilityType": "APP_GROUPS"},
+                "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": bundle_pk}}},
+            }})
+            print(f"  Turned on App Groups for {identifier}.")
+        except APIError as error:
+            print(f"  Couldn't turn on App Groups for {identifier}: {error}")
+
+
+def cmd_app(api):
+    app = api.app()
+    if not app:
+        print(f"No app record for {BUNDLE_PREFIX} yet. Create it in App Store Connect (Apps > + > New App).")
+        return
+    attrs = app["attributes"]
+    print(f"Unhook app record: {attrs.get('name')} | {attrs.get('bundleId')} | sku {attrs.get('sku')} | id {app['id']}")
+    versions = api.get_all(f"/v1/apps/{app['id']}/appStoreVersions")
+    for v in versions:
+        va = v["attributes"]
+        print(f"  version {va.get('versionString')} | {va.get('appStoreState') or va.get('appVersionState')} | id {v['id']}")
+
+
+APP_NAME_CANDIDATES = ["Unhook: Quit Bad Habits", "Unhook - Quit Bad Habits", "Unhook: Habit Quit Tracker", "Unhook Quit Tracker"]
+
+
+def cmd_create_app(api):
+    """Apple has historically only allowed creating app records on the website; try the API anyway."""
+    if api.app():
+        print("The app record already exists.")
+        return
+    bundle = api.bundle_id(BUNDLE_PREFIX)
+    if not bundle:
+        raise SystemExit(f"Register {BUNDLE_PREFIX} first ([asc register]).")
+    for name in APP_NAME_CANDIDATES:
+        try:
+            created = api.request("POST", "/v1/apps", body={"data": {
+                "type": "apps",
+                "attributes": {"name": name, "bundleId": BUNDLE_PREFIX, "sku": "unhook", "primaryLocale": "en-US"},
+            }})
+            print(f"Created the app record \"{name}\" (id {created['data']['id']}).")
+            return
+        except APIError as error:
+            print(f"Creating \"{name}\" failed: {error.status} {error.body[:400]}")
+            if error.status in (403, 404, 405):
+                print("The API doesn't allow creating apps; it has to be done on the App Store Connect website.")
+                return
+
+
+def cmd_probe(api):
+    """Checks whether this API version can manage App Groups (widgets share data with the app through one)."""
+    for path in ("/v1/appGroups", "/v1/bundleIds/{id}/appGroups"):
+        bundle = api.bundle_id(BUNDLE_PREFIX)
+        url = path.replace("{id}", bundle["id"] if bundle else "none")
+        try:
+            data = api.request("GET", url)
+            print(f"GET {path}: OK, {len(data.get('data', []))} item(s)")
+        except APIError as error:
+            print(f"GET {path}: {error.status} {error.body[:300]}")
+
+
+def _summ(value, limit=160):
+    text = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
+    return text if len(text) <= limit else text[:limit] + f"... ({len(text)} chars)"
+
+
+def cmd_inspect(api, bundle_identifier="com.brucegao.brucerun"):
+    """Read-only look at how an existing app is set up, to copy the shapes. Prints no personal data."""
+    app = api.app(bundle_identifier)
+    if not app:
+        print(f"No app for {bundle_identifier}.")
+        return
+    app_id = app["id"]
+    print(f"App {app['attributes'].get('name')} ({app_id}) attributes:", _summ(app["attributes"], 600))
+    for info in api.request("GET", f"/v1/apps/{app_id}/appInfos", params={"include": "primaryCategory,secondaryCategory,ageRatingDeclaration"}).get("data", []):
+        print("appInfo", info["id"], _summ(info["attributes"], 300))
+        rel = info.get("relationships", {})
+        for key in ("primaryCategory", "secondaryCategory"):
+            print(f"  {key}:", (rel.get(key, {}).get("data") or {}).get("id"))
+        try:
+            rating = api.request("GET", f"/v1/appInfos/{info['id']}/ageRatingDeclaration")
+            print("  ageRatingDeclaration:", json.dumps(rating["data"]["attributes"], sort_keys=True))
+        except APIError as error:
+            print("  ageRatingDeclaration error:", error.status)
+        locs = api.request("GET", f"/v1/appInfos/{info['id']}/appInfoLocalizations").get("data", [])
+        for loc in locs:
+            a = loc["attributes"]
+            print(f"  appInfoLocalization {a.get('locale')}: name={a.get('name')!r} subtitle={a.get('subtitle')!r} "
+                  f"privacy={a.get('privacyPolicyUrl')!r}")
+    versions = api.get_all(f"/v1/apps/{app_id}/appStoreVersions")
+    for v in versions[:2]:
+        va = v["attributes"]
+        print(f"version {va.get('versionString')} {va.get('appStoreState')} copyright={va.get('copyright')!r} "
+              f"releaseType={va.get('releaseType')}")
+        vlocs = api.request("GET", f"/v1/appStoreVersions/{v['id']}/appStoreVersionLocalizations").get("data", [])
+        for loc in vlocs[:2]:
+            a = loc["attributes"]
+            print(f"  versionLocalization {a.get('locale')}: keys={sorted(k for k, val in a.items() if val)}")
+            sets = api.request("GET", f"/v1/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets").get("data", [])
+            for st in sets:
+                shots = api.request("GET", f"/v1/appScreenshotSets/{st['id']}/appScreenshots").get("data", [])
+                dims = [(s2["attributes"].get("imageAsset") or {}) for s2 in shots[:1]]
+                print(f"    screenshotSet {st['attributes'].get('screenshotDisplayType')}: {len(shots)} shots "
+                      f"{[(d.get('width'), d.get('height')) for d in dims]}")
+        try:
+            review = api.request("GET", f"/v1/appStoreVersions/{v['id']}/appStoreReviewDetail")
+            ra = (review.get("data") or {}).get("attributes", {})
+            print("  reviewDetail fields set:", sorted(k for k, val in ra.items() if val not in (None, "", False)))
+        except APIError as error:
+            print("  reviewDetail:", error.status)
+    try:
+        schedule = api.request("GET", f"/v1/apps/{app_id}/appPriceSchedule", params={"include": "baseTerritory,manualPrices"})
+        print("priceSchedule:", _summ(schedule.get("data", {}).get("relationships", {}), 300))
+        for inc in schedule.get("included", [])[:3]:
+            print("  included", inc["type"], inc["id"][:40], _summ(inc.get("attributes", {}), 200))
+    except APIError as error:
+        print("priceSchedule:", error.status, error.body[:200])
+    try:
+        events = api.request("GET", f"/v1/apps/{app_id}/appEvents", params={"limit": 10}).get("data", [])
+        for ev in events:
+            print("appEvent", ev["id"], json.dumps(ev["attributes"], ensure_ascii=False, sort_keys=True)[:900])
+            elocs = api.request("GET", f"/v1/appEvents/{ev['id']}/localizations").get("data", [])
+            for el in elocs[:3]:
+                print("  eventLocalization", json.dumps(el["attributes"], ensure_ascii=False)[:400])
+                try:
+                    shots = api.request("GET", f"/v1/appEventLocalizations/{el['id']}/appEventScreenshots").get("data", [])
+                    for sh in shots:
+                        at = sh["attributes"]
+                        print("    eventScreenshot", at.get("appEventAssetType"), (at.get("imageAsset") or {}).get("width"),
+                              (at.get("imageAsset") or {}).get("height"))
+                except APIError as error:
+                    print("    eventScreenshots:", error.status)
+    except APIError as error:
+        print("appEvents:", error.status, error.body[:300])
+    try:
+        avail = api.request("GET", f"/v1/apps/{app_id}/appAvailabilityV2")
+        print("availability:", _summ(avail.get("data", {}).get("attributes", {}), 200))
+    except APIError as error:
+        print("availability:", error.status, error.body[:200])
+
+
+COMMANDS = {
+    "inspect": cmd_inspect,
+    "check": cmd_check, "register": cmd_register, "app": cmd_app, "create-app": cmd_create_app, "probe": cmd_probe,
+}
+
+
+import release  # noqa: E402 - the release commands live next to this file
+
+COMMANDS.update(release.COMMANDS)
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__)
+        return 2
+    command = argv[1]
+    if command == "write-key":
+        path = argv[2]
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(normalized_private_key(os.environ.get("ASC_PRIVATE_KEY", "")))
+        os.chmod(path, 0o600)
+        print(f"Wrote the API key to {path}.")
+        return 0
+    if command == "has-app":
+        print("yes" if ASC().app() else "no")
+        return 0
+    if command == "from-commit-message":
+        message = os.environ.get("COMMIT_MESSAGE", "")
+        names = []
+        for name in re.findall(r"\[asc ([a-z-]+)\]", message):
+            if name in COMMANDS and name not in names:
+                names.append(name)
+        if not names:
+            print("No App Store Connect API command in the commit message.")
+            return 0
+    else:
+        names = [command]
+    api = ASC()
+    failed = False
+    for name in names:
+        print(f"== {name}")
+        try:
+            COMMANDS[name](api)
+        except APIError as error:
+            failed = True
+            print(f"FAILED: {error}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
