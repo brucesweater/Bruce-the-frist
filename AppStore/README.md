@@ -15,6 +15,7 @@ Everything in this folder is text and images, so it never affects the app build.
 | [`creative/`](creative) | The product page header (3840 × 1646) and the search result picture (3840 × 2560), made by `tools/appstore-art/store_art.py`. |
 | [`event/`](event) | The "New Year Reset 2027" in-app event: `event.json`, plus the card (1920 × 1080) and details (1080 × 1920) images. |
 | [`SCREENSHOTS.md`](SCREENSHOTS.md) | The 8 screenshots, the size rules, and how the set is made. |
+| [`LEGAL_CHECK.md`](LEGAL_CHECK.md) | What a legal check of the app and listing found, what was fixed, and what to redo when the app changes. Not legal advice. |
 | [`APP_REVIEW_NOTES.md`](APP_REVIEW_NOTES.md) | How the review notes work, the App Privacy answer ("Data Not Collected") and the age rating answers. |
 | [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) | Where the published privacy policy lives and how to keep it in sync with the app. |
 | [Feature claim check](#feature-claim-check-before-every-submission) (below) | One command per feature the listing mentions, to prove it's in the build before you submit. |
@@ -188,7 +189,7 @@ git push
 |---|---|---|
 | 2.1 | A crash, a dead link or a broken feature during review | Test the TestFlight build on a real iPhone, publish both Notion pages, and follow the QUICK TEST before submitting |
 | 2.3.1, 2.3.7 | The listing describes something that isn't in the build, or uses other brands in keywords | The feature claim check below; no third-party brand names in the description or keywords (no "NoFap", "Dry January" or competitor names) |
-| 1.4.1 | Health claims | The smoking timeline cites the WHO and NHS; every timeline says "not medical advice" and suggests a doctor; the copy never promises outcomes |
+| 1.4.1 | Health claims | The smoking timeline is adapted from public WHO and NHS pages and says Unhook is not connected to them; every timeline says "not medical advice" and suggests a doctor; the coach sends withdrawal and medicine questions to a doctor; the copy never promises outcomes |
 | 1.1, 1.2 | The AI coach says something harmful, with no way to report it | Apple's guardrails, fixed crisis and emergency replies, and "Report this reply" on every coach reply, all explained in the notes |
 | 5.1.1 | Privacy policy missing or not reachable | The Notion policy is published and linked from the listing and Settings, and the in-app policy matches it |
 
@@ -225,9 +226,11 @@ grep -rn 'Button("Report this reply"' --include='*.swift' Unhook/Views/Coach
 grep -n "ALTERNATE_APPICON_NAMES" Unhook.xcodeproj/project.pbxproj
 # 10 the founder page in Settings (description, notes)
 grep -rn 'Text("Meet the founder")' --include='*.swift' Unhook/Views/Settings
-# 11 recovery timeline sources and the alcohol warning (description, notes)
-grep -n "WHO and the NHS" Unhook/Models/RecoveryTimeline.swift
-grep -rn "WithdrawalCaution()" --include='*.swift' Unhook/Views
+# 11 recovery timeline sources, the doctor caution for alcohol and "Something else", and the coach's
+#    doctor-only reply about withdrawal and medicine (description, notes)
+grep -n "public WHO and NHS pages" Unhook/Models/RecoveryTimeline.swift
+grep -rn "WithdrawalCaution(presetID:" --include='*.swift' Unhook/Views
+grep -n "isAboutWithdrawalOrMedicine" Unhook/Views/Coach/CoachView.swift
 # 12 free, nothing to buy (description, promotional text, notes, privacy policy)
 grep -n "isProEnabled = false" Unhook/Models/Monetization.swift
 # 13 nothing leaves the phone: only fixed links, and no URLSession (description, notes, privacy policy)

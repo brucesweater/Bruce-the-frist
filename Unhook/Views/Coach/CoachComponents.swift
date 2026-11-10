@@ -28,7 +28,7 @@ struct CoachHeader: View {
                 doneButton
             }
             CoachPrivacyChip()
-            Text("Not a doctor. For withdrawal or medication questions, ask a doctor or pharmacist. In an emergency, call your local emergency number.")
+            Text("An automated coach, not a person or a doctor. For withdrawal or medication questions, ask a doctor or pharmacist. In an emergency, call your local emergency number.")
                 .font(.caption)
                 .foregroundStyle(Palette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

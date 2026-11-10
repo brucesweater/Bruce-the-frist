@@ -43,7 +43,7 @@ enum CelebrationCenter {
         let day: TimeInterval = 86_400
         switch milestone.seconds {
         case ..<day:
-            return String(localized: "The first hours are the hardest, and you're already through them.")
+            return String(localized: "The first hours are done. That's a real start.")
         case ..<(7 * day):
             return String(localized: "Every day you stay free makes the next one easier. Keep stacking them.")
         case ..<(30 * day):

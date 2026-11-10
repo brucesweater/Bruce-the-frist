@@ -9,10 +9,17 @@ struct RootView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var context
     @Query private var habits: [Habit]
+    /// The opening animation, shown once over a cold start.
+    @State private var showsOpening = OpeningView.playsOnLaunch
 
     var body: some View {
         @Bindable var router = router
         ZStack {
+            if showsOpening {
+                OpeningView(onFinished: endOpening)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
             if hasOnboarded {
                 AppLockContainer {
                     MainTabView()
@@ -57,8 +64,14 @@ struct RootView: View {
         }
         // Widget and notification links: unhook://sos opens SOS, unhook://challenge/reset30 opens the
         // 30-Day Reset, anything else goes to Today.
+        // SOS never waits for the opening.
+        .onChange(of: router.isShowingSOS) { _, showing in
+            if showing { showsOpening = false }
+        }
         .onOpenURL { url in
             guard url.scheme == "unhook" else { return }
+            // A widget or link asked for something specific: go straight there.
+            showsOpening = false
             switch url.host ?? "" {
             case "sos":
                 Task { await router.requestSOS() }
@@ -74,6 +87,12 @@ struct RootView: View {
                 router.selectedTab = .today
             }
         }
+    }
+}
+
+extension RootView {
+    private func endOpening() {
+        withAnimation(.easeOut(duration: 0.4)) { showsOpening = false }
     }
 }
 

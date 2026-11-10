@@ -264,7 +264,7 @@ struct ScriptedCoach {
             ),
             CoachReply(
                 intent: .hungry,
-                opener: String(localized: "Low blood sugar makes cravings feel stronger than they are."),
+                opener: String(localized: "Being hungry can make cravings feel stronger."),
                 action: String(localized: "Have a proper snack now, even a small one, and sip some water. Give it 10 minutes and notice how the craving changes.")
             ),
         ]

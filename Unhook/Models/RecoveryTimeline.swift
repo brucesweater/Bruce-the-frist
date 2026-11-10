@@ -13,7 +13,7 @@ struct RecoveryStep: Identifiable, Hashable {
 
 /// "What's happening in your body and mind" for each preset habit.
 ///
-/// Smoking follows the widely published WHO and NHS quit timeline. Every other timeline sticks to
+/// Smoking is adapted from the widely published WHO and NHS quit timeline. Every other timeline sticks to
 /// conservative, commonly reported experiences (sleep, mood, focus, energy, money, cravings easing) and never
 /// makes precise clinical promises. Every list is sorted ascending with unique offsets.
 enum RecoveryTimeline {
@@ -48,7 +48,7 @@ enum RecoveryTimeline {
     /// Where the steps come from, when they follow published health guidance.
     static func sourceNote(for presetID: String) -> String? {
         guard presetID == "smoking" else { return nil }
-        return String(localized: "Based on guidance from the WHO and the NHS.")
+        return String(localized: "Adapted from public WHO and NHS pages on quitting smoking. Unhook is not connected to or endorsed by them.")
     }
 
     /// Where `elapsed` clean time sits on `steps`.
@@ -151,7 +151,7 @@ private extension RecoveryTimeline {
         ),
         RecoveryStep(
             offset: year,
-            title: String(localized: "Heart risk halved"),
+            title: String(localized: "Heart risk about halved"),
             detail: String(localized: "After a year, your added risk of coronary heart disease is about half that of someone who still smokes."),
             symbol: "waveform.path.ecg"
         ),
@@ -163,13 +163,13 @@ private extension RecoveryTimeline {
         ),
         RecoveryStep(
             offset: 10 * year,
-            title: String(localized: "Lung cancer risk halved"),
+            title: String(localized: "Lung cancer risk about halved"),
             detail: String(localized: "After 10 years, your risk of dying from lung cancer is about half that of someone who still smokes."),
             symbol: "shield.lefthalf.filled"
         ),
         RecoveryStep(
             offset: 15 * year,
-            title: String(localized: "A non-smoker's heart"),
+            title: String(localized: "Heart risk like a non-smoker's"),
             detail: String(localized: "After 15 years, your risk of coronary heart disease is about the same as a non-smoker's."),
             symbol: "heart.circle.fill"
         ),
@@ -242,7 +242,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: 3 * day,
             title: String(localized: "Better hydrated"),
-            detail: String(localized: "Without alcohol's drying effect, many people wake up feeling fresher, with fewer headaches."),
+            detail: String(localized: "Without alcohol's drying effect, many people wake up feeling fresher, with fewer headaches. If you feel shaky, sweaty or confused, or see things that aren't there, get medical help right away."),
             symbol: "drop.fill"
         ),
         RecoveryStep(
@@ -338,7 +338,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: day,
             title: String(localized: "First step taken"),
-            detail: String(localized: "You chose differently today. Urges come in waves, and they always pass."),
+            detail: String(localized: "You chose differently today. Urges come in waves, and they pass."),
             symbol: "figure.walk"
         ),
         RecoveryStep(
@@ -350,7 +350,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: week,
             title: String(localized: "More energy"),
-            detail: String(localized: "Many people notice more energy and motivation for the rest of their life."),
+            detail: String(localized: "Some people notice more energy and motivation for the rest of their life."),
             symbol: "bolt.fill"
         ),
         RecoveryStep(
@@ -362,7 +362,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: month,
             title: String(localized: "Steadier mood"),
-            detail: String(localized: "Mood often feels more stable, with less guilt and more self-respect."),
+            detail: String(localized: "Many people say their mood feels steadier."),
             symbol: "face.smiling"
         ),
         RecoveryStep(
@@ -395,7 +395,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: day,
             title: String(localized: "First day done"),
-            detail: String(localized: "Your body begins adjusting to fewer sugar highs and crashes."),
+            detail: String(localized: "Your body begins adjusting to fewer sugar highs and crashes. This is about cutting back on sweets, not skipping meals."),
             symbol: "sun.max.fill"
         ),
         RecoveryStep(
@@ -446,7 +446,7 @@ private extension RecoveryTimeline {
         RecoveryStep(
             offset: day,
             title: String(localized: "A fresh start"),
-            detail: String(localized: "Every meal you choose well is a win for your energy and your wallet."),
+            detail: String(localized: "Every meal you choose well is a win for your energy and your wallet. This is about better meals, not fewer of them."),
             symbol: "sunrise.fill"
         ),
         RecoveryStep(

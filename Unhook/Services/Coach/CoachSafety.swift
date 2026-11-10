@@ -24,6 +24,10 @@ enum CoachSafety {
         "cant go on", "done with life", "point of living", "all my pills", "bottle of pills", "cutting again",
         "jump off a bridge", "jump off a building", "jump off the roof", "never wake up again",
         "im in danger", "i am in danger", "in immediate danger",
+        "self harming", "selfharming", "want to end it", "wanna end it", "wish i was never born",
+        "wish i had never been born", "wish id never been born", "cut my wrists", "cutting my wrists",
+        // Common misspellings
+        "sucide", "suicde", "suiside", "sucidal",
     ]
 
     /// Crisis phrases in other languages people may write in. Checked as plain substrings of the case- and
@@ -76,7 +80,7 @@ enum CoachSafety {
         CoachReply(
             intent: .crisis,
             opener: String(localized: "I'm really sorry you're feeling this way, and I'm glad you told me. You deserve support from a real person right now."),
-            action: String(localized: "Please call your local emergency number or a crisis line. findahelpline.com lists free, confidential helplines in your country.")
+            action: String(localized: "Please call your local emergency number or a crisis line, or tell an adult you trust. findahelpline.com lists free, confidential helplines in your country. In the US, you can call or text 988.")
         )
     }
 
@@ -103,6 +107,34 @@ enum CoachSafety {
 
     static var medicalEmergencyReply: String {
         String(localized: "That sounds like it could be a medical emergency. Please call your local emergency number now, or ask someone near you for help. Stopping some habits, like heavy drinking, can cause dangerous withdrawal, so a doctor should know what's happening.")
+    }
+
+    /// Phrases, already normalized, about withdrawal symptoms or medicine. The coach must not guess about these,
+    /// so they get a fixed reply that points to a doctor instead of craving tips.
+    static let withdrawalPhrases: [String] = [
+        "withdrawal*", "withdrawing", "shaking", "shaky", "the shakes", "tremor*", "trembling", "detox*", "taper*",
+        "vomiting", "throwing up", "night sweats", "cant stop sweating", "my meds", "medication*", "medicine",
+        "prescri*", "dose", "doses", "dosage", "benzo*", "xanax", "valium", "opioid*", "opiate*", "painkiller*",
+        "methadone", "suboxone", "antidepressant*", "sleeping pills",
+    ]
+
+    static func isAboutWithdrawalOrMedicine(_ text: String) -> Bool {
+        CoachText.matchesAny(CoachText.normalize(text), withdrawalPhrases)
+    }
+
+    static var withdrawalReply: String {
+        String(localized: "I can't give advice about withdrawal symptoms or medicine, and I don't want to guess. Please talk to a doctor or pharmacist today, and never stop a prescribed medicine on your own. If you're shaking badly, confused, or seeing or hearing things that aren't there, call your local emergency number now.")
+    }
+
+    /// Phrases, already normalized, that suggest a low mood that may need more than a craving tip. The coach still
+    /// answers, and the screen also shows the helpline banner.
+    static let lowMoodPhrases: [String] = [
+        "depress*", "hopeless", "worthless", "hate myself", "hate my life", "cant take it anymore",
+        "cant take this anymore", "give up on everything", "no one cares", "nobody cares",
+    ]
+
+    static func isLowMood(_ text: String) -> Bool {
+        CoachText.matchesAny(CoachText.normalize(text), lowMoodPhrases)
     }
 }
 

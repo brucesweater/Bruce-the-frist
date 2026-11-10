@@ -85,6 +85,15 @@ struct RelapseSheet: View {
                 .lineLimit(2...4)
         } header: {
             Text("Anything else? (optional)")
+        } footer: {
+            if let url = CoachSafety.helplineURL {
+                Link(destination: url) {
+                    Text("Feeling really low? Find a free helpline.")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Palette.amber)
+                }
+                .padding(.top, 6)
+            }
         }
         .listRowBackground(Self.rowBackground)
     }

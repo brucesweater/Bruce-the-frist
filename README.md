@@ -34,7 +34,7 @@ It's built with SwiftUI, SwiftData, Swift Charts, App Intents, WidgetKit and App
 - **Onboarding:** your habit, when you quit ("Just now" or "Earlier", with a date), daily cost and time, your reasons, a one-year projection, and a reminders opt-in.
 - **Clean-time counters** for each habit: days, hours, minutes and seconds, with 13 milestones (1 hour to 5 years), milestone alerts and a full-screen celebration for each one.
 - **Money, time and units saved,** plus **savings goals** funded in order from what you've saved. Preset costs start in your local currency.
-- **Recovery timeline** for each habit type, worded cautiously. Smoking follows WHO and NHS milestones. Every timeline says it's general information, not medical advice, and to check with a doctor. Choosing alcohol (in onboarding or when adding a habit) shows a warning that stopping heavy daily drinking suddenly can be dangerous.
+- **Recovery timeline** for each habit type, worded cautiously. The smoking timeline is adapted from public WHO and NHS pages, and the app says it is not connected to them. Every timeline says it's general information, not medical advice, and to check with a doctor. Choosing alcohol (in onboarding or when adding a habit) shows a warning that stopping heavy daily drinking suddenly can be dangerous.
 - **A kind slip flow** that banks your earlier clean time, with **Undo**.
 
 **Get through cravings**
@@ -56,6 +56,7 @@ It's built with SwiftUI, SwiftData, Swift Charts, App Intents, WidgetKit and App
 
 **Around the app**
 
+- **Opening:** a short animation of the icon's ring opening and the sky turning to dawn each time the app starts. A tap skips it, it doesn't play when the app is opened for SOS or from a link, and with Reduce Motion on it's a simple fade. In a Debug build, `-OpeningTime 0.9` holds it at one moment.
 - **Widgets:** Streak (Home Screen small and medium, Lock Screen circular, rectangular and inline) and Craving SOS (one tap to breathing). They read the app's data through an App Group.
 - **Siri and Shortcuts:** "Open SOS in Unhook", "I beat a craving in Unhook", "Check my streak in Unhook".
 - **Face ID lock.** When it's on, widgets and notifications hide what you're quitting.

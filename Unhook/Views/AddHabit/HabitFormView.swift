@@ -145,8 +145,8 @@ struct HabitFormView: View {
                 HabitFormFooter(text: Text(editing == nil
                     ? "Already clean for a while? Pick the date and Unhook counts it."
                     : "Fix the date if you set it wrong. It can't be earlier than your last slip; to take back a slip, undo it from the habit's history."))
-                if editing == nil && draft.presetID == "alcohol" {
-                    WithdrawalCaution()
+                if editing == nil && WithdrawalCaution.applies(to: draft.presetID) {
+                    WithdrawalCaution(presetID: draft.presetID)
                 }
             }
         }

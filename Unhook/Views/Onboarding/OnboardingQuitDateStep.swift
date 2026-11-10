@@ -74,8 +74,8 @@ struct OnboardingQuitDateStep: View {
                 earlierPicker
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            if answers.draft.presetID == "alcohol" {
-                WithdrawalCaution()
+            if WithdrawalCaution.applies(to: answers.draft.presetID) {
+                WithdrawalCaution(presetID: answers.draft.presetID)
             }
         }
     }
@@ -127,10 +127,23 @@ struct OnboardingQuitDateStep: View {
 
 /// Stopping heavy daily drinking all at once can be dangerous, so say so before the streak starts.
 struct WithdrawalCaution: View {
+    var presetID: String
+
+    /// Alcohol, and "Something else", which could be a drug or a medicine.
+    static func applies(to presetID: String) -> Bool {
+        presetID == "alcohol" || presetID == HabitPreset.customID
+    }
+
     var body: some View {
         Label {
-            Text("Drinking heavily every day? Stopping suddenly can cause dangerous withdrawal. Talk to a doctor before you stop.")
-                .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if presetID == "alcohol" {
+                    Text("Drinking heavily every day? Stopping suddenly can cause dangerous withdrawal. Talk to a doctor before you stop.")
+                } else {
+                    Text("Quitting a drug or a medicine you take every day? Talk to a doctor first. Stopping some of them suddenly can be dangerous, and never stop a prescribed medicine on your own.")
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "stethoscope")
                 .foregroundStyle(Palette.amber)

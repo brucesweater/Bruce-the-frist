@@ -297,6 +297,55 @@ struct CoachTests {
         }
     }
 
+    @Test func detectsMoreWaysOfSayingIt() {
+        let messages = [
+            "I've been self-harming again",
+            "I just want to end it",
+            "I wish I was never born",
+            "thinking about sucide",
+        ]
+        for message in messages {
+            #expect(CoachSafety.isCrisis(message), "“\(message)” should be treated as a crisis")
+        }
+        #expect(CoachSafety.crisisReply.contains("988"))
+        #expect(CoachSafety.crisisReply.contains("adult you trust"))
+    }
+
+    @Test func withdrawalAndMedicineQuestionsGoToADoctor() {
+        let messages = [
+            "I stopped drinking 2 days ago and I'm shaking",
+            "Is this withdrawal?",
+            "Should I stop taking my meds",
+            "How do I taper off Xanax",
+            "What dose of nicotine gum should I use",
+        ]
+        for message in messages {
+            #expect(CoachSafety.isAboutWithdrawalOrMedicine(message), "“\(message)” should be sent to a doctor")
+        }
+        #expect(CoachSafety.withdrawalReply.contains("doctor"))
+        #expect(CoachSafety.withdrawalReply.contains("emergency"))
+    }
+
+    @Test func ordinaryCravingTalkIsNotAboutWithdrawal() {
+        let messages = [
+            "I really want a cigarette",
+            "I'm at a party and everyone is drinking",
+            "I'm bored and want to scroll",
+            "I went for a run and feel great",
+            "I slipped",
+        ]
+        for message in messages {
+            #expect(!CoachSafety.isAboutWithdrawalOrMedicine(message), "“\(message)” is ordinary craving talk")
+        }
+    }
+
+    @Test func aVeryLowMoodShowsTheHelpline() {
+        #expect(CoachSafety.isLowMood("I feel so depressed lately"))
+        #expect(CoachSafety.isLowMood("everything feels hopeless"))
+        #expect(!CoachSafety.isLowMood("I'm a bit tired today"))
+        #expect(!CoachSafety.isLowMood("I'm stressed about my exam"))
+    }
+
     @Test func detectsPossibleMedicalEmergencies() {
         let messages = [
             "I quit drinking yesterday and I think I had a seizure",

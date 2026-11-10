@@ -46,7 +46,7 @@ struct SOSView: View {
     private static let totalCycles = 4
 
     private static let fallbackReasons = [
-        String(localized: "Cravings peak and fade within minutes."),
+        String(localized: "Most cravings peak and fade within minutes."),
         String(localized: "You are stronger than this moment."),
         String(localized: "Future you is already proud of you."),
     ]

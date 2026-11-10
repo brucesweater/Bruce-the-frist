@@ -215,6 +215,22 @@ struct CoachView: View {
             return
         }
 
+        // Withdrawal symptoms and medicine are a doctor's call, so the coach doesn't guess.
+        if CoachSafety.isAboutWithdrawalOrMedicine(text) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                messages.append(CoachMessage(role: .coach, text: CoachSafety.withdrawalReply))
+            }
+            Self.announce(CoachSafety.withdrawalReply)
+            return
+        }
+
+        // A very low mood still gets a reply, with real help one tap away.
+        if CoachSafety.isLowMood(text) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                showsCrisisResources = true
+            }
+        }
+
         let activeCoach: any CravingCoach = coach ?? ScriptedCoach()
         let currentContext = context
         withAnimation(.easeOut(duration: 0.2)) {
