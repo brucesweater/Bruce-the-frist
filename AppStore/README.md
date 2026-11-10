@@ -12,6 +12,7 @@ Everything in this folder is text and images, so it never affects the app build.
 |---|---|
 | [`metadata/`](metadata) | The App Store listing (English (U.S.)) and the notes for App Review. Uploaded by `[asc metadata]` and `[asc review-details]`. |
 | [`screenshots/`](screenshots) | `raw/`: screens captured by CI. `final/en-US/APP_IPHONE_67/`: where the 8 finished screenshots go for `[asc screenshots]` (step 8 below). |
+| [`creative/`](creative) | The product page header (3840 × 1646) and the search result picture (3840 × 2560), made by `tools/appstore-art/store_art.py`. |
 | [`event/`](event) | The "New Year Reset 2027" in-app event: `event.json`, plus the card (1920 × 1080) and details (1080 × 1920) images. |
 | [`SCREENSHOTS.md`](SCREENSHOTS.md) | The 8 screenshots, the size rules, and how the set is made. |
 | [`APP_REVIEW_NOTES.md`](APP_REVIEW_NOTES.md) | How the review notes work, the App Privacy answer ("Data Not Collected") and the age rating answers. |
@@ -84,6 +85,7 @@ The commands (from `tools/asc/asc.py` and `tools/asc/release.py`):
 | `[asc attach-build]` | Attaches the newest processed build to the version. |
 | `[asc submit]` | Submits the version for App Review. It never includes the in-app event. |
 | `[asc event]` | Creates or updates the in-app event from `event/` (text and both images). It stays a draft. |
+| `[asc creative]` | Uploads the product page header and the search result picture from `creative/` to the Asset Library. Choose them on the version page, under Header and Search Results. |
 | `[asc submit-event]` | Submits draft in-app events for review on their own. Use it only after 1.0 is approved. |
 | `[asc status]` | Prints the version's state, the newest processed build, review submissions and the age rating. Changes nothing. |
 

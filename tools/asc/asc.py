@@ -15,7 +15,7 @@ Usage:
   asc.py from-commit-message       run the commands named in COMMIT_MESSAGE as "[asc <command>]"
 
 Release commands (tools/asc/release.py): metadata, age-rating, review-details, pricing, availability, screenshots,
-event, attach-build, submit, status.
+event, creative, attach-build, submit, submit-event, status.
 """
 import json
 import os

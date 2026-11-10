@@ -19,6 +19,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 METADATA = os.path.join(ROOT, "AppStore", "metadata")
 SCREENSHOTS = os.path.join(ROOT, "AppStore", "screenshots", "final")
 EVENT_DIR = os.path.join(ROOT, "AppStore", "event")
+CREATIVE_DIR = os.path.join(ROOT, "AppStore", "creative")
 LOCALES = ["en-US", "es-MX", "pt-BR", "fr-FR", "de-DE", "it", "ja", "ko", "zh-Hans", "zh-Hant", "ru", "tr", "ar-SA",
            "hi", "id", "nl-NL"]
 EDITABLE_STATES = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
@@ -265,8 +266,12 @@ def _upload_asset(api, create_type, attributes, relationships, data):
         chunk = data[op["offset"]:op["offset"] + op["length"]]
         response = requests.request(op["method"], op["url"], headers=headers, data=chunk, timeout=180)
         response.raise_for_status()
+    done = {"uploaded": True}
+    # In-app event images and Asset Library pictures don't take a checksum.
+    if create_type not in ("appEventScreenshots", "appAssetLibraryImages"):
+        done["sourceFileChecksum"] = _md5(data)
     api.request("PATCH", f"/v1/{create_type}/{created['id']}", body={"data": {
-        "type": create_type, "id": created["id"], "attributes": {"uploaded": True, "sourceFileChecksum": _md5(data)}}})
+        "type": create_type, "id": created["id"], "attributes": done}})
     return created["id"]
 
 
@@ -389,6 +394,39 @@ def cmd_event(api):
         print(f"  {locale}: text and {len(ids)} images")
 
 
+def cmd_creative(api):
+    """Uploads the product page header and the search result picture from AppStore/creative/ to the Asset
+    Library. A picture whose name is already there is left alone. Choosing them for the product page is done on
+    the website (the version page, under Header and Search Results)."""
+    app = require_app(api)
+    folder = os.path.join(CREATIVE_DIR, "en-US")
+    have = {img["attributes"].get("fileName") for img in api.get_all(f"/v1/appAssetLibraries/{app['id']}/images")}
+    ids = []
+    for filename, library_name in (("header.png", "Unhook header.png"), ("search.png", "Unhook search results.png")):
+        path = os.path.join(folder, filename)
+        if not os.path.exists(path):
+            print(f"  no {filename} in AppStore/creative/en-US")
+            continue
+        if library_name in have:
+            print(f"  {library_name}: already in the Asset Library")
+            continue
+        with open(path, "rb") as handle:
+            data = handle.read()
+        ids.append(_upload_asset(api, "appAssetLibraryImages", {
+            "fileName": library_name, "fileSize": len(data), "category": "CREATIVE_ASSETS"}, {
+            "assetLibrary": {"data": {"type": "appAssetLibraries", "id": app["id"]}}}, data))
+        print(f"  {library_name}: uploaded")
+    deadline = time.time() + 180
+    for asset_id in ids:
+        while time.time() < deadline:
+            attrs = api.request("GET", f"/v1/appAssetLibraryImages/{asset_id}")["data"]["attributes"]
+            if attrs.get("state") not in ("AWAITING_UPLOAD", "UPLOAD_COMPLETE"):
+                size = attrs.get("imageAsset") or {}
+                print(f"  {attrs.get('fileName')}: {attrs.get('state')} {size.get('width')} x {size.get('height')}")
+                break
+            time.sleep(4)
+
+
 def _latest_valid_build(api, app_id):
     builds = api.request("GET", "/v1/builds", params={
         "filter[app]": app_id, "sort": "-uploadedDate", "limit": 10}).get("data", [])
@@ -481,6 +519,7 @@ COMMANDS = {
     "availability": cmd_availability,
     "screenshots": cmd_screenshots,
     "event": cmd_event,
+    "creative": cmd_creative,
     "attach-build": cmd_attach_build,
     "submit": cmd_submit,
     "submit-event": cmd_submit_event,

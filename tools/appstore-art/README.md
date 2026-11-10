@@ -32,6 +32,10 @@ Other scripts:
 - `header.py <raw dir> <out.jpg>`: the 3840 × 1646 header for the press kit and website.
 - `search_preview.py <screenshots dir> <app icon> <out.png>`: how the listing looks in App Store search (icon,
   name, subtitle and the first three screenshots). For checking only, not for upload.
+- `store_art.py header|search <raw dir> <out.png>`: the two creative assets for App Store Connect's Asset
+  Library, the product page header (3840 × 1646) and the search result picture (3840 × 2560). Every word stays
+  inside the safe area of Apple's templates; `--guide` draws that area for checking. The finished pictures live in
+  `AppStore/creative/en-US/` and `asc.py creative` uploads them.
 
 ## Files
 
