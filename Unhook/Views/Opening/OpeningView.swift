@@ -11,7 +11,10 @@ struct OpeningView: View {
     var onFinished: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var start = Date.now
+    @Environment(\.scenePhase) private var scenePhase
+    /// When the animation began. Nil until the app is really on screen.
+    @State private var start: Date?
+    @State private var hasBegun = false
     @State private var isFinished = false
 
     /// Whether this launch plays the opening. UI tests and the screenshot run skip it.
@@ -39,10 +42,10 @@ struct OpeningView: View {
             if let frozen = Self.frozenTime {
                 OpeningScene(time: frozen)
             } else if reduceMotion {
-                OpeningScene(time: OpeningScene.length)
+                OpeningScene(time: start == nil ? 0 : OpeningScene.length)
             } else {
                 TimelineView(.animation) { timeline in
-                    OpeningScene(time: timeline.date.timeIntervalSince(start))
+                    OpeningScene(time: start.map { timeline.date.timeIntervalSince($0) } ?? 0)
                 }
             }
         }
@@ -50,8 +53,20 @@ struct OpeningView: View {
         .onTapGesture(perform: finish)
         // Decoration only: VoiceOver goes straight to the app underneath.
         .accessibilityHidden(true)
-        .task {
-            guard Self.frozenTime == nil else { return }
+        // The clock starts when the app is on screen, not when it's still loading behind the launch screen,
+        // so the first moments are never lost.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active { play() }
+        }
+    }
+
+    private func play() {
+        guard !hasBegun, Self.frozenTime == nil else { return }
+        hasBegun = true
+        Task {
+            // One short beat on the launch color, so the first frame is already showing.
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(reduceMotion ? .easeOut(duration: 0.3) : nil) { start = .now }
             if reduceMotion {
                 try? await Task.sleep(for: .seconds(1.0))
             } else {
