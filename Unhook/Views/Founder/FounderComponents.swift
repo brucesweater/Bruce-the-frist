@@ -12,9 +12,9 @@ enum FounderLinks {
     static let supportPage = URL(string: "https://onyx-payment-888.notion.site/Unhook-Support-413b68ad1a0f8155a50eea137d02086a")!
     static let privacyPolicy = URL(string: "https://onyx-payment-888.notion.site/Unhook-Privacy-Policy-413b68ad1a0f818bb77dd8f06dfb3919")!
     static let helplines = URL(string: "https://findahelpline.com")!
-    /// Unhook's numeric Apple ID. Fill it in from App Store Connect > App Information once the app record exists.
-    /// Until then "Rate Unhook" in Settings falls back to the system review prompt.
-    static let appStoreID: String? = nil
+    /// Unhook's numeric Apple ID, from App Store Connect > App Information.
+    /// "Rate Unhook" in Settings uses it to open the review page. Without it, it falls back to the system review prompt.
+    static let appStoreID: String? = "6832849658"
     /// Unhook's App Store page, opened on the "Write a Review" sheet. Nil until `appStoreID` is filled in.
     static var writeReview: URL? { writeReviewURL(appID: appStoreID) }
 

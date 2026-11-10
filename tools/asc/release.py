@@ -232,11 +232,14 @@ def cmd_pricing(api):
 
 def cmd_availability(api):
     app = require_app(api)
-    territories = [t for t in api.get_all("/v1/territories") if t["id"] not in EXCLUDED_TERRITORIES]
+    # Apple wants every territory in the request, so the excluded ones are sent as not available.
+    everywhere = api.get_all("/v1/territories")
+    territories = [t for t in everywhere if t["id"] not in EXCLUDED_TERRITORIES]
     included = [{
-        "type": "territoryAvailabilities", "id": "${" + t["id"] + "}", "attributes": {"available": True},
+        "type": "territoryAvailabilities", "id": "${" + t["id"] + "}",
+        "attributes": {"available": t["id"] not in EXCLUDED_TERRITORIES},
         "relationships": {"territory": {"data": {"type": "territories", "id": t["id"]}}},
-    } for t in territories]
+    } for t in everywhere]
     try:
         api.request("POST", "/v2/appAvailabilities", body={
             "data": {"type": "appAvailabilities", "attributes": {"availableInNewTerritories": True}, "relationships": {
