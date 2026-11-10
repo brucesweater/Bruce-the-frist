@@ -20,9 +20,6 @@ struct RankMedallion: View {
     var body: some View {
         let colors = Palette.skyColors(progress: rank.skyProgress)
         ZStack {
-            if glows {
-                halo
-            }
             Circle()
                 .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
             Circle()
@@ -40,6 +37,12 @@ struct RankMedallion: View {
                 .strokeBorder(Brand.gradient, lineWidth: max(1.5, size * 0.035))
         }
         .frame(width: size, height: size)
+        // The halo is wider than the medallion. It sits behind it, so it can't stretch the circles to its own size.
+        .background {
+            if glows {
+                halo
+            }
+        }
         .accessibilityHidden(true)
     }
 

@@ -129,6 +129,11 @@ def phone_shot(bg, app_screen, line1, line2, sub, angle=0, phone_width=1000, x=N
         top = 40 + mark.height - 40
     place_headline(canvas, headline(line1, line2, sub), top)
     if badge is not None:
+        # A soft dark disc behind the badge keeps its small text readable when a bright star is under it.
+        disc = Image.new("RGBA", badge.size, (0, 0, 0, 0))
+        inset = int(badge.size[0] * 0.07)
+        ImageDraw.Draw(disc).ellipse((inset, inset, badge.size[0] - inset, badge.size[1] - inset), fill=(16, 12, 46, 215))
+        canvas.alpha_composite(disc.filter(ImageFilter.GaussianBlur(14)), badge_at)
         canvas.alpha_composite(badge, badge_at)
     return canvas.convert("RGB")
 

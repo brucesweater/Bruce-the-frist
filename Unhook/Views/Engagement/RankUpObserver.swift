@@ -28,24 +28,27 @@ private struct RankUpPresenter: View {
     }
 
     var body: some View {
-        Color.clear
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .overlay {
-                if let rank = risenTo, canShow {
-                    RankUpCelebrationView(rank: rank, onDone: acknowledge)
-                        .transition(.opacity)
-                }
+        // The watcher itself has no size. A clear full-screen view here sat on top of every tab in the
+        // accessibility tree, so the buttons underneath were reported as covered.
+        ZStack {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            if let rank = risenTo, canShow {
+                RankUpCelebrationView(rank: rank, onDone: acknowledge)
+                    .transition(.opacity)
             }
-            .animation(.easeInOut(duration: 0.35), value: risenTo?.level)
-            .animation(.easeInOut(duration: 0.35), value: canShow)
-            .onAppear(perform: evaluate)
-            .onChange(of: summary.rank.level) {
-                evaluate()
-            }
-            .onChange(of: lastSeenRankLevel) {
-                evaluate()
-            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: risenTo?.level)
+        .animation(.easeInOut(duration: 0.35), value: canShow)
+        .onAppear(perform: evaluate)
+        .onChange(of: summary.rank.level) {
+            evaluate()
+        }
+        .onChange(of: lastSeenRankLevel) {
+            evaluate()
+        }
     }
 
     private func evaluate() {
