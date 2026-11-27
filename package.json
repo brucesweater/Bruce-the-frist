@@ -1,0 +1,36 @@
+{
+  "name": "admit-compass",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Estimate your chances of admission at U.S. colleges and build a balanced college list.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "build:single": "vite build --mode single && node scripts/make-fragment.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "calibrate": "vite-node scripts/calibrate.ts",
+    "build:data": "vite-node scripts/build-colleges.ts --"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.7",
+    "@types/react": "^19.3.3",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.4.0",
+    "vite-node": "^6.0.0",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.1.2"
+  },
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  }
+}
