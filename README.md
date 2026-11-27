@@ -24,6 +24,17 @@ breakdown of what helps and hurts your odds at that college.
 - **Polished on every screen**: light and dark themes, phone layout, keyboard support, screen-reader labels and
   reduced-motion support. Your profile is saved in your browser only.
 
+## Install it on your phone
+
+Once the site is published (see [Deploying to GitHub Pages](#deploying-to-github-pages)), open
+**https://brucesweater.github.io/Bruce-the-frist/** on your phone and add it to your home screen:
+
+- **iPhone**: in Safari, tap the Share button, then **Add to Home Screen**.
+- **Android**: in Chrome, open the ⋮ menu and tap **Install app** (or **Add to Home screen**).
+
+It then opens full-screen from its own icon, like any other app, and keeps working offline after the first visit.
+No App Store, cable or developer account needed.
+
 ## How the estimate works
 
 The model in [`src/model/admission.ts`](src/model/admission.ts) is a latent-index model of selective admissions:
